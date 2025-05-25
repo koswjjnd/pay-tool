@@ -1,0 +1,126 @@
+type Query {
+    hello: String
+    user(id: ID!): User
+    users: [User!]!
+    group(id: ID!): Group
+    groups: [Group!]!
+    userGroups(userId: ID!): [Group!]!
+    groupMembers(groupId: ID!): [GroupMember!]!
+    transaction(id: ID!): Transaction
+    transactions: [Transaction!]!
+    userTransactions(userId: ID!): [Transaction!]!
+}
+
+type Mutation {
+    testMutation: String
+    createUser(input: CreateUserInput!): User!
+    updateUser(id: ID!, input: UpdateUserInput!): User!
+    createGroup(input: CreateGroupInput!): Group!
+    joinGroup(qrCode: String!): GroupMember!
+    updateMemberStatus(groupId: ID!, userId: ID!, status: MemberStatus!): GroupMember!
+    generatePaymentCard(groupId: ID!): PaymentCard!
+    createTransaction(input: CreateTransactionInput!): Transaction!
+    updateTransactionStatus(id: ID!, status: TransactionStatus!): Transaction!
+}
+
+type User {
+    id: ID!
+    username: String!
+    email: String!
+    name: String!
+    createdAt: String!
+    updatedAt: String!
+}
+
+type Group {
+    id: ID!
+    leader: User!
+    totalAmount: Float!
+    status: GroupStatus!
+    qrCode: String
+    createdAt: String!
+    updatedAt: String!
+    members: [GroupMember!]!
+}
+
+type GroupMember {
+    id: ID!
+    group: Group!
+    user: User!
+    amount: Float!
+    status: MemberStatus!
+    joinedAt: String!
+}
+
+type PaymentCard {
+    id: ID!
+    group: Group!
+    cardNumber: String!
+    amount: Float!
+    status: PaymentCardStatus!
+    createdAt: String!
+}
+
+type Transaction {
+    id: ID!
+    sender: User!
+    receiver: User!
+    amount: Float!
+    status: TransactionStatus!
+    description: String
+    createdAt: String!
+    updatedAt: String!
+}
+
+enum TransactionStatus {
+    PENDING
+    COMPLETED
+    FAILED
+    CANCELLED
+}
+
+enum GroupStatus {
+    PENDING
+    ACTIVE
+    COMPLETED
+    CANCELLED
+}
+
+enum MemberStatus {
+    PENDING
+    AGREED
+    DISAGREED
+}
+
+enum PaymentCardStatus {
+    PENDING
+    ACTIVE
+    USED
+    EXPIRED
+}
+
+input CreateUserInput {
+    username: String!
+    password: String!
+    email: String!
+    name: String!
+}
+
+input UpdateUserInput {
+    email: String
+    name: String
+    password: String
+}
+
+input CreateGroupInput {
+    leaderId: ID!
+    totalAmount: Float!
+    description: String
+}
+
+input CreateTransactionInput {
+    senderId: ID!
+    receiverId: ID!
+    amount: Float!
+    description: String
+} 
