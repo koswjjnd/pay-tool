@@ -16,11 +16,12 @@ type Mutation {
     createUser(input: CreateUserInput!): User!
     updateUser(id: ID!, input: UpdateUserInput!): User!
     createGroup(input: CreateGroupInput!): Group!
-    joinGroup(qrCode: String!): GroupMember!
+    joinGroup(groupId: ID!, userId: ID!): GroupMember!
     updateMemberStatus(groupId: ID!, userId: ID!, status: MemberStatus!): GroupMember!
     generatePaymentCard(groupId: ID!): PaymentCard!
     createTransaction(input: CreateTransactionInput!): Transaction!
     updateTransactionStatus(id: ID!, status: TransactionStatus!): Transaction!
+    login(username: String!, password: String!): AuthPayload!
 }
 
 type User {
@@ -36,6 +37,7 @@ type Group {
     id: ID!
     leader: User!
     totalAmount: Float!
+    description: String
     status: GroupStatus!
     qrCode: String
     createdAt: String!
@@ -70,6 +72,11 @@ type Transaction {
     description: String
     createdAt: String!
     updatedAt: String!
+}
+
+type AuthPayload {
+    token: String!
+    user: User!
 }
 
 enum TransactionStatus {

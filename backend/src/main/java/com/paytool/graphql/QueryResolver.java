@@ -54,7 +54,8 @@ public class QueryResolver {
         if (user == null) {
             return List.of();
         }
-        return groupRepository.findByLeader(user);
+        List<GroupMember> memberships = groupMemberRepository.findByUser(user);
+        return memberships.stream().map(GroupMember::getGroup).distinct().toList();
     }
 
     @QueryMapping

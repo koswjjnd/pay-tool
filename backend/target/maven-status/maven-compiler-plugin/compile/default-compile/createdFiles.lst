@@ -5,6 +5,7 @@ com\paytool\model\Group.class
 com\paytool\PayToolApplication.class
 com\paytool\config\SecurityConfig.class
 com\paytool\graphql\MutationResolver.class
+com\paytool\model\AuthPayload.class
 com\paytool\model\TransactionStatus.class
 com\paytool\model\MemberStatus.class
 com\paytool\repository\GroupMemberRepository.class

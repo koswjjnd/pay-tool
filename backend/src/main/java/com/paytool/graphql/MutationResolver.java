@@ -113,53 +113,28 @@ public class MutationResolver {
     }
 
     @MutationMapping
-    public GroupMember joinGroup(@Argument("qrCode") String qrCode) {
-        try {
-            System.out.println("Attempting to join group with qrCode: " + qrCode);
-            
-            Group group = groupRepository.findByQrCode(qrCode)
-                .orElseThrow(() -> new RuntimeException("Group not found with qrCode: " + qrCode));
-            System.out.println("Found group: " + group.getId());
+    public GroupMember joinGroup(@Argument("groupId") Long groupId, @Argument("userId") Long userId) {
+        Group group = groupRepository.findById(groupId)
+            .orElseThrow(() -> new RuntimeException("Group not found with id: " + groupId));
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
 
-            // 暂时使用ID为1的用户作为测试
-            User currentUser = userRepository.findById(1L)
-                .orElseThrow(() -> new RuntimeException("Test user not found"));
-            System.out.println("Found user: " + currentUser.getId());
-
-            // 检查用户是否已经是群组成员
-            if (groupMemberRepository.findByGroupAndUser(group, currentUser).isPresent()) {
-                throw new RuntimeException("User already joined this group");
-            }
-
-            // 获取当前群组成员数量
-            long memberCount = groupMemberRepository.findByGroup(group).size();
-            
-            // 计算每个成员应付金额（简单平均）
-            double amountPerMember = group.getTotalAmount() / (memberCount + 1);
-
-            // 创建新的群组成员
-            GroupMember member = new GroupMember();
-            member.setGroup(group);
-            member.setUser(currentUser);
-            member.setAmount(amountPerMember);
-            member.setStatus(MemberStatus.PENDING);
-
-            // 保存群组成员
-            GroupMember savedMember = groupMemberRepository.save(member);
-            System.out.println("Created group member: " + savedMember.getId());
-
-            // 更新群组状态
-            if (group.getStatus() == GroupStatus.PENDING) {
-                group.setStatus(GroupStatus.ACTIVE);
-                groupRepository.save(group);
-            }
-
-            return savedMember;
-        } catch (Exception e) {
-            System.err.println("Error in joinGroup: " + e.getMessage());
-            e.printStackTrace();
-            throw new RuntimeException("Failed to join group: " + e.getMessage(), e);
+        // 检查用户是否已经是群组成员
+        if (groupMemberRepository.findByGroupAndUser(group, user).isPresent()) {
+            throw new RuntimeException("User already joined this group");
         }
+
+        // 计算每个成员应付金额（可自定义分摊逻辑）
+        long memberCount = groupMemberRepository.findByGroup(group).size();
+        double amountPerMember = group.getTotalAmount() / (memberCount + 1);
+
+        GroupMember member = new GroupMember();
+        member.setGroup(group);
+        member.setUser(user);
+        member.setAmount(amountPerMember);
+        member.setStatus(MemberStatus.PENDING);
+
+        return groupMemberRepository.save(member);
     }
 
     @MutationMapping
@@ -234,6 +209,18 @@ public class MutationResolver {
 
         transaction.setStatus(status);
         return transactionRepository.save(transaction);
+    }
+
+    @MutationMapping
+    public AuthPayload login(@Argument String username, @Argument String password) {
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new RuntimeException("Invalid password");
+        }
+        // TODO: 替换为真实 JWT 生成逻辑
+        String token = "mock-jwt-token-" + user.getId();
+        return new AuthPayload(token, user);
     }
 
     private String generateCardNumber() {
