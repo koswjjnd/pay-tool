@@ -6,112 +6,112 @@
 
 ## Figma Link: https://www.figma.com/proto/dV3Pb7LVvBbcEYOkZgXBub/303-Final-Project?node-id=24-8463&p=f&t=TXmc8SJZMbr3QYA6-1&scaling=min-zoom&content-scaling=fixed&page-id=0%3A1&starting-point-node-id=47%3A218
 
-# PayTool - 群组支付管理工具
+# PayTool - Group Payment Management Tool
 
-PayTool 是一个现代化的群组支付管理工具，帮助用户轻松管理群组账单和支付。
+PayTool is a modern group payment management tool that helps users easily manage group bills and payments.
 
-## 技术栈
+## Tech Stack
 
-### 前端
+### Frontend
 - Next.js 14
 - TypeScript
 - Tailwind CSS
 - GraphQL Client
-- UI 组件库：
-  - shadcn/ui（基于 Radix UI）
-  - Lucide Icons（图标库）
-  - Tailwind CSS（样式框架）
+- UI Components:
+  - shadcn/ui (based on Radix UI)
+  - Lucide Icons
+  - Tailwind CSS
 
-### 后端
+### Backend
 - Spring Boot
 - GraphQL
 - MySQL
 - Maven
 
-## 环境要求
+## Requirements
 
-- Node.js 18.0.0 或更高版本
-- Java 17 或更高版本
-- MySQL 8.0 或更高版本
-- Maven 3.6 或更高版本
+- Node.js 18.0.0 or higher
+- Java 17 or higher
+- MySQL 8.0 or higher
+- Maven 3.6 or higher
 
-## 配置步骤
+## Setup Instructions
 
-### 1. 克隆项目
+### 1. Clone the Project
 ```bash
-git clone [项目地址]
+git clone [repository-url]
 cd final-project-paytool
 ```
 
-### 2. 后端配置
+### 2. Backend Setup
 
-1. 配置数据库
-   - 创建 MySQL 数据库
-   - 修改 `backend/src/main/resources/application.properties` 中的数据库配置：
+1. Configure Database
+   - Create MySQL database
+   - Update database configuration in `backend/src/main/resources/application.properties`:
      ```properties
      spring.datasource.url=jdbc:mysql://localhost:3306/paytool
-     spring.datasource.username=你的用户名
-     spring.datasource.password=你的密码
+     spring.datasource.username=your_username
+     spring.datasource.password=your_password
      ```
 
-2. 启动后端服务
+2. Start Backend Service
    ```bash
    cd backend
    mvn clean install
    mvn spring-boot:run
    ```
-   后端服务将在 http://localhost:8080 运行
+   Backend service will run at http://localhost:8080
 
-### 3. 前端配置
+### 3. Frontend Setup
 
-1. 安装依赖
+1. Install Dependencies
    ```bash
    cd frontend
    npm install
    ```
 
-2. 启动开发服务器
+2. Start Development Server
    ```bash
    npm run dev
    ```
-   前端服务将在 http://localhost:3000 运行
+   Frontend service will run at http://localhost:3000
 
-## 使用说明
+## Usage Guide
 
-1. 访问 http://localhost:3000 打开应用
-2. 首次使用需要注册账号
-3. 登录后可以：
-   - 创建新的支付群组
-   - 通过二维码加入群组
-   - 管理群组账单
-   - 查看支付状态
+1. Visit http://localhost:3000 to open the application
+2. Register an account for first-time users
+3. After logging in, you can:
+   - Create new payment groups
+   - Join groups via QR code
+   - Manage group bills
+   - Track payment status
 
-## 开发说明
+## Development Guide
 
-- 前端代码位于 `frontend/src` 目录
-- 后端代码位于 `backend/src/main/java` 目录
-- GraphQL schema 位于 `backend/src/main/resources/schema.graphqls`
+- Frontend code is located in `frontend/src` directory
+- Backend code is located in `backend/src/main/java` directory
+- GraphQL schema is located in `backend/src/main/resources/schema.graphqls`
 
-## 常见问题
+## Troubleshooting
 
-1. 如果遇到数据库连接问题，请检查：
-   - MySQL 服务是否运行
-   - 数据库配置是否正确
-   - 数据库用户权限是否足够
+1. If you encounter database connection issues, check:
+   - MySQL service is running
+   - Database configuration is correct
+   - Database user has sufficient permissions
 
-2. 如果前端无法连接后端，请检查：
-   - 后端服务是否正常运行
-   - 前端环境变量配置是否正确
-   - 跨域配置是否正确
+2. If frontend cannot connect to backend, check:
+   - Backend service is running
+   - Frontend environment variables are configured correctly
+   - CORS configuration is correct
 
-## 贡献指南
+## Contributing
 
-1. Fork 项目
-2. 创建特性分支
-3. 提交更改
-4. 推送到分支
-5. 创建 Pull Request
+1. Fork the project
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
-## 许可证
+## License
 
 MIT License
