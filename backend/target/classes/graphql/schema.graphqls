@@ -37,6 +37,7 @@ type Group {
     id: ID!
     leader: User!
     totalAmount: Float!
+    totalPeople: Int!
     description: String
     status: GroupStatus!
     qrCode: String
@@ -122,6 +123,7 @@ input UpdateUserInput {
 input CreateGroupInput {
     leaderId: ID!
     totalAmount: Float!
+    totalPeople: Int!
     description: String
 }
 
@@ -130,4 +132,9 @@ input CreateTransactionInput {
     receiverId: ID!
     amount: Float!
     description: String
+}
+
+type Subscription {
+    groupStatusChanged(groupId: ID!): Group!
+    memberStatusChanged(groupId: ID!): GroupMember!
 } 
