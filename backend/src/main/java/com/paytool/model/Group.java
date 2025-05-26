@@ -37,9 +37,22 @@ public class Group {
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<GroupMember> members = new ArrayList<>();
 
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+    
+    @Column(name = "total_people", nullable = false)
+    private Integer totalPeople;
+
+    // getter 和 setter
+    public Integer getTotalPeople() {
+        return totalPeople;
+    }
+
+    public void setTotalPeople(Integer totalPeople) {
+        this.totalPeople = totalPeople;
+    }
 } 

@@ -39,6 +39,9 @@ spring:
       enabled: true
       additional-paths: src/main/java
       exclude: static/**,public/**
+  graphql:
+    websocket:
+      path: /graphql
 
 graphql:
   servlet:
