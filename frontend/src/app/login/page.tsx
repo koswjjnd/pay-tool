@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import GoogleLoginButton from '@/components/GoogleLoginButton';
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -157,6 +158,21 @@ export default function LoginPage() {
             )}
           </Button>
         </form>
+
+        <div className="mt-6">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="bg-white px-2 text-gray-500">Or continue with</span>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <GoogleLoginButton />
+          </div>
+        </div>
 
         <p className="mt-4 text-center text-base text-gray-500">
           Don&apos;t have an account?{' '}

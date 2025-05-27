@@ -35,10 +35,20 @@ public class SecurityConfig {
                     "/playground/**",
                     "/vendor/**",
                     "/error",
-                    "/error/**"
+                    "/error/**",
+                    "/api/auth/google",
+                    "/login/oauth2/code/**",
+                    "/h2-console/**"
                 ).permitAll()
                 .anyRequest().authenticated()
-            );
+            )
+            .oauth2Login(oauth2 -> oauth2
+                .authorizationEndpoint(authorization -> authorization
+                    .baseUri("/oauth2/authorize"))
+                .redirectionEndpoint(redirection -> redirection
+                    .baseUri("/login/oauth2/code/*"))
+            )
+            .headers(headers -> headers.frameOptions().disable()); // 允许 H2 控制台在 iframe 中显示
         
         return http.build();
     }
