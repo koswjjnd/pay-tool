@@ -19,9 +19,12 @@ export default function GoogleLoginButton() {
       });
 
       if (response.ok) {
-        router.push('/dashboard'); // 登录成功后跳转到仪表板
-        console.log('Google login response:', response);
-        localStorage.setItem("avatar", credentialResponse.profileObj.imageUrl);
+        const data = await response.json();
+        if (data.avatar) {
+          localStorage.setItem("avatar", data.avatar);
+          window.dispatchEvent(new Event("avatar-updated"));
+        }
+        router.push('/dashboard');
       } else {
         console.error('Login failed');
       }
