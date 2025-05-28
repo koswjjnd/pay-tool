@@ -31,4 +31,9 @@ public class GroupMember {
 
     @CreationTimestamp
     private LocalDateTime joinedAt;
+
+    @Override
+    public String toString() {
+        return "GroupMember{id=" + id + ", status=" + status + ", amount=" + amount + ", groupId=" + (group != null ? group.getId() : null) + ", userId=" + (user != null ? user.getId() : null) + "}";
+    }
 } 

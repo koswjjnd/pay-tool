@@ -1,14 +1,25 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { QrCodeIcon, PlusIcon, MenuIcon, UserIcon, SearchIcon, LinkIcon, CopyIcon } from "lucide-react";
+import {
+  QrCodeIcon,
+  PlusIcon,
+  MenuIcon,
+  UserIcon,
+  SearchIcon,
+  LinkIcon,
+  CopyIcon,
+} from "lucide-react";
 import { toast } from "sonner";
+import { useMemberSubscription } from "@/hooks/useSubscription";
 
 // 群组列表项组件
 function GroupListItem({ group, selected, onClick }: any) {
   return (
     <div
-      className={`cursor-pointer px-4 py-3 border-b hover:bg-primary-50 ${selected ? "bg-primary-100 font-bold" : ""}`}
+      className={`cursor-pointer px-4 py-3 border-b hover:bg-primary-50 ${
+        selected ? "bg-primary-100 font-bold" : ""
+      }`}
       onClick={onClick}
     >
       <div className="flex justify-between items-center">
@@ -26,17 +37,57 @@ function GroupDetail({ group, userId, setGroup }: any) {
   const [members, setMembers] = useState<any[]>(group?.members || []);
   const [generatingCard, setGeneratingCard] = useState(false);
   const [cardInfo, setCardInfo] = useState<any>(null);
+  const [wsUpdateReceived, setWsUpdateReceived] = useState(false);
+
+  // WebSocket subscription for member status changes
+  const { member: liveMember } = useMemberSubscription(group?.id);
 
   useEffect(() => {
     setMembers(group?.members || []);
   }, [group]);
 
-  const handleUpdateStatus = async (status: 'AGREED' | 'DISAGREED', memberId: string) => {
+  // Handle real-time updates via WebSocket
+  useEffect(() => {
+    if (liveMember) {
+      console.log("🔄 WebSocket update received:", liveMember);
+      setWsUpdateReceived(true);
+
+      // Update the member in our local state
+      setMembers((prevMembers) =>
+        prevMembers.map((m) =>
+          m.id === liveMember.id ? { ...m, status: liveMember.status } : m
+        )
+      );
+
+      // Show a toast notification for real-time updates
+      if (!updating) {
+        // Only show if we're not the one who triggered the update
+        toast.info(`Member status updated via WebSocket: ${liveMember.status}`);
+      }
+
+      // Reset the update indicator after 3 seconds
+      setTimeout(() => setWsUpdateReceived(false), 3000);
+    }
+  }, [liveMember, updating]);
+
+  const handleUpdateStatus = async (
+    status: "AGREED" | "DISAGREED",
+    memberId: string
+  ) => {
     setUpdating(memberId + status);
     try {
-      const response = await fetch('http://localhost:8080/graphql', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      // Optimistic UI update (immediate feedback)
+      const updatedMembers = members.map((m) =>
+        m.id === memberId ? { ...m, status } : m
+      );
+      setMembers(updatedMembers);
+
+      console.log("📤 Sending status update via GraphQL mutation");
+
+      // Send the update to the server
+      const response = await fetch("http://localhost:8080/graphql", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: `mutation UpdateMemberStatus($groupId: ID!, $userId: ID!, $status: MemberStatus!) {
             updateMemberStatus(groupId: $groupId, userId: $userId, status: $status) {
@@ -57,42 +108,51 @@ function GroupDetail({ group, userId, setGroup }: any) {
         throw new Error(data.errors[0].message);
       }
 
-      // 更新本地成员状态
-      const updatedMembers = members.map(m => m.id === memberId ? { ...m, status } : m);
-      setMembers(updatedMembers);
+      console.log(
+        "✅ GraphQL mutation successful, waiting for WebSocket update"
+      );
+      toast.success(`Status changed to ${status}! Waiting for confirmation...`);
 
-      // 检查是否所有成员都同意了
-      const allAgreed = updatedMembers.every(m => m.status === 'AGREED');
+      // The actual UI update will now come from the WebSocket subscription
+      // We don't need to manually update the state here anymore
+
+      // Check if all members have agreed
+      const allAgreed = updatedMembers.every((m) => m.status === "AGREED");
       if (allAgreed) {
-        // 更新群组状态为 ACTIVE
-        const updateGroupResponse = await fetch('http://localhost:8080/graphql', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: `mutation UpdateGroupStatus($groupId: ID!, $status: GroupStatus!) {
+        // Update group status to ACTIVE
+        const updateGroupResponse = await fetch(
+          "http://localhost:8080/graphql",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: `mutation UpdateGroupStatus($groupId: ID!, $status: GroupStatus!) {
               updateGroupStatus(groupId: $groupId, status: $status) {
                 id
                 status
               }
             }`,
-            variables: {
-              groupId: group.id,
-              status: 'ACTIVE',
-            },
-          }),
-        });
+              variables: {
+                groupId: group.id,
+                status: "ACTIVE",
+              },
+            }),
+          }
+        );
 
         const updateGroupData = await updateGroupResponse.json();
         if (updateGroupData.errors) {
           throw new Error(updateGroupData.errors[0].message);
         }
 
-        // 更新本地群组状态
-        setGroup((prev: any) => ({ ...prev, status: 'ACTIVE' }));
+        // Update local group status
+        setGroup((prev: any) => ({ ...prev, status: "ACTIVE" }));
         toast.success("All members agreed! Group is now active.");
       }
     } catch (error: any) {
       toast.error(error.message || "Failed to update status");
+      // Revert the optimistic update if there was an error
+      setMembers(group?.members || []);
     } finally {
       setUpdating(null);
     }
@@ -103,7 +163,7 @@ function GroupDetail({ group, userId, setGroup }: any) {
       toast.error("No group selected or user not logged in");
       return;
     }
-    
+
     setGeneratingCard(true);
     try {
       console.log("Generating card for group:", group.id);
@@ -128,7 +188,7 @@ function GroupDetail({ group, userId, setGroup }: any) {
 
       const data = await response.json();
       console.log("Response data:", data);
-      
+
       if (data.errors) {
         throw new Error(data.errors[0].message);
       }
@@ -147,13 +207,20 @@ function GroupDetail({ group, userId, setGroup }: any) {
     }
   };
 
-  if (!group) return <div className="text-gray-400 text-center mt-20">Select a group to view details</div>;
+  if (!group)
+    return (
+      <div className="text-gray-400 text-center mt-20">
+        Select a group to view details
+      </div>
+    );
 
   return (
     <div className="w-full max-w-4xl mx-auto p-4">
       {/* Group Info Header */}
       <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-        <h2 className="text-2xl font-bold mb-2">{group.description || `Group #${group.id}`}</h2>
+        <h2 className="text-2xl font-bold mb-2">
+          {group.description || `Group #${group.id}`}
+        </h2>
         <div className="flex items-center gap-4 text-gray-600">
           <div className="flex items-center gap-2">
             <UserIcon className="w-5 h-5" />
@@ -163,14 +230,23 @@ function GroupDetail({ group, userId, setGroup }: any) {
             <span className="font-semibold">${group.totalAmount}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`px-2 py-1 rounded-full text-sm ${
-              group.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
-              group.status === 'COMPLETED' ? 'bg-blue-100 text-blue-800' :
-              'bg-gray-100 text-gray-800'
-            }`}>
+            <span
+              className={`px-2 py-1 rounded-full text-sm ${
+                group.status === "ACTIVE"
+                  ? "bg-green-100 text-green-800"
+                  : group.status === "COMPLETED"
+                  ? "bg-blue-100 text-blue-800"
+                  : "bg-gray-100 text-gray-800"
+              }`}
+            >
               {group.status}
             </span>
           </div>
+          {wsUpdateReceived && (
+            <span className="px-2 py-1 rounded-full text-sm bg-blue-100 text-blue-800 animate-pulse">
+              WebSocket Update
+            </span>
+          )}
         </div>
       </div>
 
@@ -183,16 +259,22 @@ function GroupDetail({ group, userId, setGroup }: any) {
               <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center text-primary-600">
                 <UserIcon className="w-6 h-6" />
               </div>
-              
+
               {/* Member Info */}
               <div className="flex-1">
-                <div className="font-semibold">{member.user?.name || member.user?.username}</div>
+                <div className="font-semibold">
+                  {member.user?.name || member.user?.username}
+                </div>
                 <div className="text-sm text-gray-500">${member.amount}</div>
-                <div className={`mt-2 inline-block px-2 py-1 rounded-full text-xs ${
-                  member.status === 'AGREED' ? 'bg-green-100 text-green-800' :
-                  member.status === 'DISAGREED' ? 'bg-red-100 text-red-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
+                <div
+                  className={`mt-2 inline-block px-2 py-1 rounded-full text-xs ${
+                    member.status === "AGREED"
+                      ? "bg-green-100 text-green-800"
+                      : member.status === "DISAGREED"
+                      ? "bg-red-100 text-red-800"
+                      : "bg-gray-100 text-gray-800"
+                  }`}
+                >
                   {member.status}
                 </div>
               </div>
@@ -204,20 +286,24 @@ function GroupDetail({ group, userId, setGroup }: any) {
                 <Button
                   size="sm"
                   disabled={!!updating}
-                  variant={member.status === 'AGREED' ? 'default' : 'outline'}
-                  onClick={() => handleUpdateStatus('AGREED', member.id)}
+                  variant={member.status === "AGREED" ? "default" : "outline"}
+                  onClick={() => handleUpdateStatus("AGREED", member.id)}
                   className="flex-1"
                 >
-                  {updating === member.id + 'AGREED' ? 'Agreeing...' : 'Agree'}
+                  {updating === member.id + "AGREED" ? "Agreeing..." : "Agree"}
                 </Button>
                 <Button
                   size="sm"
                   disabled={!!updating}
-                  variant={member.status === 'DISAGREED' ? 'default' : 'outline'}
-                  onClick={() => handleUpdateStatus('DISAGREED', member.id)}
+                  variant={
+                    member.status === "DISAGREED" ? "default" : "outline"
+                  }
+                  onClick={() => handleUpdateStatus("DISAGREED", member.id)}
                   className="flex-1"
                 >
-                  {updating === member.id + 'DISAGREED' ? 'Disagreeing...' : 'Disagree'}
+                  {updating === member.id + "DISAGREED"
+                    ? "Disagreeing..."
+                    : "Disagree"}
                 </Button>
               </div>
             )}
@@ -241,7 +327,9 @@ function GroupDetail({ group, userId, setGroup }: any) {
             <div className="space-y-4">
               <div className="bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg p-6 text-white">
                 <div className="text-sm mb-2">Card Number</div>
-                <div className="text-xl font-mono mb-4">{cardInfo.cardNumber}</div>
+                <div className="text-xl font-mono mb-4">
+                  {cardInfo.cardNumber}
+                </div>
                 <div className="flex justify-between">
                   <div>
                     <div className="text-sm">Amount</div>
@@ -306,8 +394,8 @@ export default function DashboardPage() {
         variables: { userId },
       }),
     })
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         setGroups(data.data.userGroups || []);
       });
   }, [userId]);
@@ -331,8 +419,8 @@ export default function DashboardPage() {
         variables: { id: selectedGroupId },
       }),
     })
-      .then(res => res.json())
-      .then(data => setSelectedGroup(data.data.group));
+      .then((res) => res.json())
+      .then((data) => setSelectedGroup(data.data.group));
   }, [selectedGroupId]);
 
   // 侧栏内容（移除账户信息）
@@ -347,23 +435,45 @@ export default function DashboardPage() {
       <div className="flex flex-col h-full w-72 bg-white shadow-lg">
         <div className="flex items-center gap-2 p-4 border-b">
           <SearchIcon className="w-5 h-5 text-gray-400" />
-          <input className="flex-1 bg-transparent outline-none text-base" placeholder="Search groups..." />
+          <input
+            className="flex-1 bg-transparent outline-none text-base"
+            placeholder="Search groups..."
+          />
         </div>
         <div className="p-4 flex flex-col gap-2 border-b">
-          <Button className="w-full flex items-center gap-2 justify-center" onClick={() => { setDrawerOpen(false); setTimeout(() => window.location.href = '/dashboard/create-group', 200); }}>
+          <Button
+            className="w-full flex items-center gap-2 justify-center"
+            onClick={() => {
+              setDrawerOpen(false);
+              setTimeout(
+                () => (window.location.href = "/dashboard/create-group"),
+                200
+              );
+            }}
+          >
             <PlusIcon className="w-5 h-5" /> Create Group
           </Button>
-          <Button className="w-full flex items-center gap-2 justify-center" variant="outline" onClick={() => { setDrawerOpen(false); setTimeout(() => window.location.href = '/dashboard/join', 200); }}>
+          <Button
+            className="w-full flex items-center gap-2 justify-center"
+            variant="outline"
+            onClick={() => {
+              setDrawerOpen(false);
+              setTimeout(() => (window.location.href = "/dashboard/join"), 200);
+            }}
+          >
             <LinkIcon className="w-5 h-5" /> Join by Link
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {groups.map(group => (
+          {groups.map((group) => (
             <div key={group.id}>
               <GroupListItem
                 group={group}
                 selected={group.id === selectedGroupId}
-                onClick={() => { setSelectedGroupId(group.id); setDrawerOpen(false); }}
+                onClick={() => {
+                  setSelectedGroupId(group.id);
+                  setDrawerOpen(false);
+                }}
               />
               {group.leader?.id === userId && (
                 <div className="px-4 py-2 border-b bg-gray-50">
@@ -397,7 +507,10 @@ export default function DashboardPage() {
     <div className="flex flex-col h-screen bg-gray-50">
       {/* 顶部导航栏 */}
       <header className="h-14 w-full flex items-center justify-center border-b bg-white relative">
-        <button className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded hover:bg-gray-100" onClick={() => setDrawerOpen(true)}>
+        <button
+          className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded hover:bg-gray-100"
+          onClick={() => setDrawerOpen(true)}
+        >
           <MenuIcon className="w-6 h-6" />
         </button>
         <span className="text-2xl font-bold text-primary-600">PayTool</span>
@@ -411,7 +524,9 @@ export default function DashboardPage() {
           </button>
           {avatarMenuOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50 border">
-              <div className="px-4 py-2 text-gray-700 font-semibold border-b">{userName}</div>
+              <div className="px-4 py-2 text-gray-700 font-semibold border-b">
+                {userName}
+              </div>
               <button
                 className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100"
                 onClick={handleLogout}
@@ -425,7 +540,10 @@ export default function DashboardPage() {
       {/* 侧栏抽屉 */}
       {drawerOpen && (
         <>
-          <div className="fixed inset-0 bg-black/10" onClick={() => setDrawerOpen(false)} />
+          <div
+            className="fixed inset-0 bg-black/10"
+            onClick={() => setDrawerOpen(false)}
+          />
           <div className="fixed inset-y-0 left-0 z-50">
             <DrawerContent />
           </div>
@@ -436,13 +554,17 @@ export default function DashboardPage() {
         {!selectedGroupId ? (
           <div className="bg-white rounded-2xl shadow-xl px-12 py-16 flex flex-col gap-10 items-center max-w-md w-full animate-fade-in">
             <div className="text-center">
-              <h1 className="text-3xl font-extrabold text-primary-700 mb-2 tracking-tight">Welcome to PayTool</h1>
-              <p className="text-lg text-gray-500">Start by creating or joining a group</p>
+              <h1 className="text-3xl font-extrabold text-primary-700 mb-2 tracking-tight">
+                Welcome to PayTool
+              </h1>
+              <p className="text-lg text-gray-500">
+                Start by creating or joining a group
+              </p>
             </div>
             <Button
               size="lg"
               className="w-64 h-16 text-xl flex items-center justify-center gap-4 rounded-full shadow-md transition-transform hover:scale-105 hover:shadow-lg bg-black text-white"
-              onClick={() => window.location.href = '/dashboard/create-group'}
+              onClick={() => (window.location.href = "/dashboard/create-group")}
             >
               <PlusIcon className="w-9 h-9" /> Create Group
             </Button>
@@ -450,15 +572,19 @@ export default function DashboardPage() {
               size="lg"
               variant="outline"
               className="w-64 h-16 text-xl flex items-center justify-center gap-4 rounded-full border-2 border-primary-500 text-primary-700 bg-white transition-transform hover:scale-105 hover:bg-primary-50"
-              onClick={() => window.location.href = '/dashboard/join'}
+              onClick={() => (window.location.href = "/dashboard/join")}
             >
               <LinkIcon className="w-9 h-9" /> Join by Link
             </Button>
           </div>
         ) : (
-          <GroupDetail group={selectedGroup} userId={userId} setGroup={setSelectedGroup} />
+          <GroupDetail
+            group={selectedGroup}
+            userId={userId}
+            setGroup={setSelectedGroup}
+          />
         )}
       </main>
     </div>
   );
-} 
+}

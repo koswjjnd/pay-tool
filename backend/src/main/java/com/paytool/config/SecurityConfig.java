@@ -12,6 +12,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import org.springframework.http.HttpMethod;
+
 import java.util.Arrays;
 import java.util.List;
 
@@ -35,8 +37,13 @@ public class SecurityConfig {
                     "/playground/**",
                     "/vendor/**",
                     "/error",
-                    "/error/**"
+                    "/error/**",
+                    "/subscriptions"
                 ).permitAll()
+                .requestMatchers(HttpMethod.GET, "/graphiql/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/graphql").permitAll()
+                .requestMatchers(HttpMethod.POST, "/graphql").permitAll()
+                .requestMatchers(HttpMethod.POST, "/graphql/**").permitAll()
                 .anyRequest().authenticated()
             );
         
@@ -46,7 +53,8 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3000")); // 前端开发服务器
+        // configuration.setAllowedOriginPatterns(List.of("*")); 
+        configuration.setAllowedOrigins(List.of("http://localhost:3000", "ws://localhost:8080")); // 前端开发服务器
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList(
             "Authorization",

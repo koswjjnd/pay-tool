@@ -30,7 +30,7 @@ public class GroupService {
     }
 
     @Transactional
-    public Group joinGroup(Long groupId, Long userId) {
+    public GroupMember joinGroup(Long groupId, Long userId) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new RuntimeException("Group not found"));
 
@@ -41,17 +41,31 @@ public class GroupService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        GroupMember availableSlot = group.getMembers().stream()
-                .filter(member -> member.getUser() == null)
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("No available slots in the group"));
+        // 检查该用户是否已在组内
+        boolean alreadyInGroup = group.getMembers().stream()
+                .anyMatch(member -> member.getUser() != null && member.getUser().getId().equals(userId));
+        if (alreadyInGroup) {
+            throw new RuntimeException("User already in the group");
+        }
 
-        availableSlot.setUser(user);
-        availableSlot.setStatus(MemberStatus.PENDING);
-        groupMemberRepository.save(availableSlot);
+        // 统计现有成员数
+        long currentMemberCount = group.getMembers().stream()
+                .filter(member -> member.getUser() != null)
+                .count();
+        if (currentMemberCount >= group.getTotalPeople()) {
+            throw new RuntimeException("No available slots in the group");
+        }
 
-        groupPublisher.publishMemberStatus(groupId, availableSlot);
-        return group;
+        // 新建成员
+        GroupMember newMember = new GroupMember();
+        newMember.setGroup(group);
+        newMember.setUser(user);
+        newMember.setStatus(MemberStatus.PENDING);
+        newMember.setAmount(0.0); // 可根据业务逻辑分配金额
+        groupMemberRepository.save(newMember);
+
+        groupPublisher.publishMemberStatus(groupId.toString(), newMember);
+        return newMember;
     }
 
     @Transactional
@@ -62,7 +76,7 @@ public class GroupService {
         member.setStatus(status);
         member = groupMemberRepository.save(member);
 
-        groupPublisher.publishMemberStatus(groupId, member);
+        groupPublisher.publishMemberStatus(groupId.toString(), member);
         return member;
     }
 
@@ -72,9 +86,9 @@ public class GroupService {
                 .orElseThrow(() -> new RuntimeException("Group not found"));
 
         group.setStatus(status);
-        group = groupRepository.save(group);
+        Group updatedGroup = groupRepository.save(group);
 
-        groupPublisher.publishGroupStatus(groupId, group);
-        return group;
+        groupPublisher.publishGroupStatus(groupId.toString(), updatedGroup);
+        return updatedGroup;
     }
 } 

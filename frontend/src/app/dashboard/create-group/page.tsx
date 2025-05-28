@@ -12,11 +12,16 @@ export default function CreateGroupPage() {
   const [formData, setFormData] = useState({
     description: "",
     totalAmount: "",
+    totalPeople: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.description || !formData.totalAmount) {
+    if (
+      !formData.description ||
+      !formData.totalAmount ||
+      !formData.totalPeople
+    ) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -24,19 +29,30 @@ export default function CreateGroupPage() {
     setLoading(true);
     try {
       const userId = localStorage.getItem("userId");
+      if (!userId) {
+        throw new Error("User not logged in");
+      }
+
       const response = await fetch("http://localhost:8080/graphql", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          query: `mutation CreateGroup($description: String!, $totalAmount: Float!, $leaderId: Long!) {
-            createGroup(description: $description, totalAmount: $totalAmount, leaderId: $leaderId) {
+          query: `mutation CreateGroup($input: CreateGroupInput!) {
+            createGroup(input: $input) {
               id
+              totalAmount
+              totalPeople
+              description
+              status
             }
           }`,
           variables: {
-            description: formData.description,
-            totalAmount: parseFloat(formData.totalAmount),
-            leaderId: parseInt(userId || "0"),
+            input: {
+              leaderId: userId,
+              totalAmount: parseFloat(formData.totalAmount),
+              totalPeople: parseInt(formData.totalPeople),
+              description: formData.description,
+            },
           },
         }),
       });
@@ -66,7 +82,9 @@ export default function CreateGroupPage() {
             </label>
             <Textarea
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
               placeholder="Enter group description"
               rows={3}
             />
@@ -78,16 +96,28 @@ export default function CreateGroupPage() {
             <Input
               type="number"
               value={formData.totalAmount}
-              onChange={(e) => setFormData({ ...formData, totalAmount: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, totalAmount: e.target.value })
+              }
               placeholder="Enter total amount"
               step="0.01"
             />
           </div>
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={loading}
-          >
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Total People
+            </label>
+            <Input
+              type="number"
+              value={formData.totalPeople}
+              onChange={(e) =>
+                setFormData({ ...formData, totalPeople: e.target.value })
+              }
+              placeholder="Enter number of people"
+              min="1"
+            />
+          </div>
+          <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Creating..." : "Create Group"}
           </Button>
           <Button
@@ -102,4 +132,4 @@ export default function CreateGroupPage() {
       </div>
     </div>
   );
-} 
+}
