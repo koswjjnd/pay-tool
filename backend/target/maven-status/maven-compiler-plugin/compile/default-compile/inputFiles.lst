@@ -21,7 +21,6 @@
 /Users/bruce/workspace/final-project-paytool/backend/src/main/java/com/paytool/model/TransactionStatus.java
 /Users/bruce/workspace/final-project-paytool/backend/src/main/java/com/paytool/model/AuthPayload.java
 /Users/bruce/workspace/final-project-paytool/backend/src/main/java/com/paytool/model/PaymentCard.java
-/Users/bruce/workspace/final-project-paytool/backend/src/main/java/com/paytool/resolver/GroupSubscriptionResolver.java
 /Users/bruce/workspace/final-project-paytool/backend/src/main/java/com/paytool/controller/GlobalExceptionHandler.java
 /Users/bruce/workspace/final-project-paytool/backend/src/main/java/com/paytool/model/User.java
 /Users/bruce/workspace/final-project-paytool/backend/src/main/java/com/paytool/graphql/QueryResolver.java
@@ -30,5 +29,7 @@
 /Users/bruce/workspace/final-project-paytool/backend/src/main/java/com/paytool/repository/GroupMemberRepository.java
 /Users/bruce/workspace/final-project-paytool/backend/src/main/java/com/paytool/controller/GoogleAuthController.java
 /Users/bruce/workspace/final-project-paytool/backend/src/main/java/com/paytool/service/GroupService.java
+/Users/bruce/workspace/final-project-paytool/backend/src/main/java/com/paytool/config/GraphQLConfig.java
 /Users/bruce/workspace/final-project-paytool/backend/src/main/java/com/paytool/dto/CreateGroupInput.java
+/Users/bruce/workspace/final-project-paytool/backend/src/main/java/com/paytool/graphql/SubscriptionResolver.java
 /Users/bruce/workspace/final-project-paytool/backend/src/main/java/com/paytool/service/GroupPublisher.java

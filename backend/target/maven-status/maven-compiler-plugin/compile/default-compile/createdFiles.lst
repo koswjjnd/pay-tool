@@ -3,7 +3,6 @@ com/paytool/model/PaymentCard.class
 com/paytool/model/AuthPayload.class
 com/paytool/model/Transaction.class
 com/paytool/PayToolApplication.class
-com/paytool/resolver/GroupSubscriptionResolver.class
 com/paytool/repository/GroupRepository.class
 com/paytool/controller/GlobalExceptionHandler.class
 com/paytool/dto/ErrorResponse.class

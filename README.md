@@ -70,7 +70,12 @@ cd final-project-paytool
    npm install
    ```
 
-2. Start Development Server
+2. Copy environment variables example file
+   ```bash
+   cp .env.example .env.local
+   ```
+
+3. Start Development Server
    ```bash
    npm run dev
    ```
