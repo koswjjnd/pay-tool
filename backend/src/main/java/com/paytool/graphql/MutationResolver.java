@@ -37,6 +37,7 @@ public class MutationResolver {
     private final TransactionRepository transactionRepository;
     private final PasswordEncoder passwordEncoder;
     private final GroupService groupService; // 新增的 GroupService
+    private final SubscriptionResolver subscriptionResolver;
 
     @MutationMapping
     public String testMutation() {
@@ -120,11 +121,7 @@ public class MutationResolver {
 
     @MutationMapping
     public GroupMember joinGroup(@Argument("groupId") Long groupId, @Argument("userId") Long userId) {
-        Group group = groupService.joinGroup(groupId, userId);
-        return group.getMembers().stream()
-                .filter(member -> member.getUser() != null && member.getUser().getId().equals(userId))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Failed to join group"));
+        return groupService.joinGroup(groupId, userId);
     }
 
     @MutationMapping

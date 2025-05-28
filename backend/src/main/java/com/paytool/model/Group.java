@@ -55,4 +55,9 @@ public class Group {
     public void setTotalPeople(Integer totalPeople) {
         this.totalPeople = totalPeople;
     }
+
+    @Override
+    public String toString() {
+        return "Group{id=" + id + ", description=" + description + ", status=" + status + ", totalAmount=" + totalAmount + ", totalPeople=" + totalPeople + "}";
+    }
 } 
