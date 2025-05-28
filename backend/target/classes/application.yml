@@ -31,6 +31,14 @@ spring:
     user:
       name: admin
       password: secret
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${google.client.id}
+            scope:
+              - email
+              - profile
 
   mvc:
     throw-exception-if-no-handler-found: true
@@ -102,10 +110,14 @@ graphql:
     schema-location-pattern: "**/*.graphqls"
 
 jwt:
-  secret: your-secret-key-here-must-be-at-least-32-characters
+  secret: "this-is-a-very-long-random-secret-key-must-be-at-least-64-characters-long-1234567890"
   expiration: 86400000 # 24 hours in milliseconds
 
 logging:
   level:
     org.springframework.security: DEBUG
     com.paytool: DEBUG
+
+google:
+  client:
+    id: 211473285848-tptiv712dk23v369emgamq2iocg3e0he.apps.googleusercontent.com
