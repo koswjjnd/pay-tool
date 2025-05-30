@@ -6,7 +6,9 @@ com/paytool/PayToolApplication.class
 com/paytool/repository/GroupRepository.class
 com/paytool/controller/GlobalExceptionHandler.class
 com/paytool/dto/ErrorResponse.class
+com/paytool/config/GraphQLConfig.class
 com/paytool/dto/CreateTransactionInput.class
+com/paytool/graphql/SubscriptionResolver.class
 com/paytool/repository/UserRepository.class
 com/paytool/config/GoogleOAuth2Config.class
 com/paytool/model/User.class

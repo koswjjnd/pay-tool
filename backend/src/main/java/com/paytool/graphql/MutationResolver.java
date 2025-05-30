@@ -86,7 +86,7 @@ public class MutationResolver {
             if (input.getLeaderId() == null) {
                 throw new RuntimeException("Leader ID cannot be null");
             }
-
+            double splitAmount = input.getTotalAmount() / input.getTotalPeople();
             User leader = userRepository.findById(input.getLeaderId())
                 .orElseThrow(() -> new RuntimeException("Leader not found with ID: " + input.getLeaderId()));
             System.out.println("Found leader: " + leader.getUsername());
@@ -102,10 +102,11 @@ public class MutationResolver {
             Group savedGroup = groupRepository.save(group);
             System.out.println("Created group with id: " + savedGroup.getId());
 
+            
             GroupMember leaderMember = new GroupMember();
             leaderMember.setGroup(savedGroup);
             leaderMember.setUser(leader);
-            leaderMember.setAmount(input.getTotalAmount());
+            leaderMember.setAmount(splitAmount);
             leaderMember.setStatus(MemberStatus.AGREED);
 
             GroupMember savedMember = groupMemberRepository.save(leaderMember);

@@ -1,0 +1,4885 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+backend/
+  src/
+    main/
+      java/
+        com/
+          paytool/
+            config/
+              GoogleOAuth2Config.java
+              GraphQLConfig.java
+              SecurityConfig.java
+            controller/
+              AuthController.java
+              GlobalExceptionHandler.java
+              GoogleAuthController.java
+            dto/
+              CreateGroupInput.java
+              CreateTransactionInput.java
+              CreateUserInput.java
+              ErrorResponse.java
+              GoogleLoginRequest.java
+              UpdateUserInput.java
+            graphql/
+              MutationResolver.java
+              QueryResolver.java
+              SubscriptionResolver.java
+            model/
+              AuthPayload.java
+              Group.java
+              GroupMember.java
+              GroupStatus.java
+              MemberStatus.java
+              PaymentCard.java
+              PaymentCardStatus.java
+              Transaction.java
+              TransactionStatus.java
+              User.java
+            repository/
+              GroupMemberRepository.java
+              GroupRepository.java
+              PaymentCardRepository.java
+              TransactionRepository.java
+              UserRepository.java
+            security/
+              JwtTokenProvider.java
+            service/
+              GoogleAuthService.java
+              GroupPublisher.java
+              GroupService.java
+            PayToolApplication.java
+      resources/
+        db/
+          changelog/
+            20240525-add-totalpeople.xml
+            db.changelog-master.xml
+        graphql/
+          query.graphql
+          schema.graphqls
+        application.yml
+  .gitignore
+  .sdkmanrc
+  pom.xml
+frontend/
+  public/
+    file.svg
+    globe.svg
+    next.svg
+    vercel.svg
+    window.svg
+  src/
+    app/
+      dashboard/
+        create-group/
+          page.tsx
+        group/
+          [id]/
+            page.tsx
+        join/
+          page.tsx
+        payment-history/
+          page.tsx
+        settings/
+          page.tsx
+        virtual-card/
+          page.tsx
+        page.tsx
+      login/
+        page.tsx
+      register/
+        page.tsx
+      globals.css
+      layout.tsx
+      page.tsx
+    components/
+      layout/
+        Footer.tsx
+        Header.tsx
+      ui/
+        button.tsx
+        input.tsx
+        textarea.tsx
+      GoogleLoginButton.tsx
+      Providers.tsx
+    hooks/
+      useSubscription.ts
+    lib/
+      utils.ts
+  .env.example
+  .gitignore
+  components.json
+  eslint.config.mjs
+  next.config.ts
+  package.json
+  postcss.config.mjs
+  README.md
+  tailwind.config.js
+  tsconfig.json
+.gitignore
+final-project-paytool.iml
+package.json
+README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="backend/src/main/java/com/paytool/config/GoogleOAuth2Config.java">
+package com.paytool.config;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
+import org.springframework.security.oauth2.core.AuthorizationGrantType;
+import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
+import org.springframework.security.oauth2.core.oidc.IdTokenClaimNames;
+
+@Configuration
+public class GoogleOAuth2Config {
+
+    @Value("${google.client.id}")
+    private String clientId;
+
+    @Bean
+    public ClientRegistrationRepository clientRegistrationRepository() {
+        return new InMemoryClientRegistrationRepository(googleClientRegistration());
+    }
+
+    private ClientRegistration googleClientRegistration() {
+        return ClientRegistration.withRegistrationId("google")
+            .clientId(clientId)
+            .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+            .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+            .redirectUri("{baseUrl}/login/oauth2/code/{registrationId}")
+            .scope("openid", "profile", "email")
+            .authorizationUri("https://accounts.google.com/o/oauth2/v2/auth")
+            .tokenUri("https://www.googleapis.com/oauth2/v4/token")
+            .userInfoUri("https://www.googleapis.com/oauth2/v3/userinfo")
+            .userNameAttributeName(IdTokenClaimNames.SUB)
+            .clientName("Google")
+            .build();
+    }
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/config/GraphQLConfig.java">
+package com.paytool.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.graphql.execution.RuntimeWiringConfigurer;
+import graphql.schema.idl.RuntimeWiring;
+import graphql.schema.idl.TypeRuntimeWiring;
+
+@Configuration
+public class GraphQLConfig {
+
+    @Bean
+    public RuntimeWiringConfigurer runtimeWiringConfigurer() {
+        return wiringBuilder -> wiringBuilder
+            .type(TypeRuntimeWiring.newTypeWiring("Subscription")
+                .dataFetcher("groupStatusChanged", env -> {
+                    String groupId = env.getArgument("groupId");
+                    return null; // This will be handled by the SubscriptionResolver
+                })
+                .dataFetcher("memberStatusChanged", env -> {
+                    String groupId = env.getArgument("groupId");
+                    return null; // This will be handled by the SubscriptionResolver
+                })
+            );
+    }
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/controller/AuthController.java">
+package com.paytool.controller;
+
+import com.paytool.dto.GoogleLoginRequest;
+import com.paytool.service.GoogleAuthService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/auth")
+@CrossOrigin(origins = "http://localhost:3000")
+public class AuthController {
+
+    private final GoogleAuthService googleAuthService;
+
+    public AuthController(GoogleAuthService googleAuthService) {
+        this.googleAuthService = googleAuthService;
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<?> googleLogin(@RequestBody GoogleLoginRequest request) {
+        try {
+            String token = googleAuthService.authenticateGoogleUser(request.getCredential());
+            Map<String, String> response = new HashMap<>();
+            response.put("token", token);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body("Invalid Google token: " + e.getMessage());
+        }
+    }
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/controller/GoogleAuthController.java">
+package com.paytool.controller;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
+import java.util.HashMap;
+import com.paytool.service.GoogleAuthService;
+import com.paytool.dto.GoogleLoginRequest;
+
+@RestController
+@RequestMapping("/api/auth")
+public class GoogleAuthController {
+
+    @Value("${google.client.id}")
+    private String clientId;
+
+    private final GoogleAuthService googleAuthService;
+
+    public GoogleAuthController(GoogleAuthService googleAuthService) {
+        this.googleAuthService = googleAuthService;
+    }
+
+    @GetMapping("/google")
+    public ResponseEntity<?> googleAuth(@AuthenticationPrincipal OAuth2User principal) {
+        if (principal == null) {
+            return ResponseEntity.badRequest().body("Not authenticated");
+        }
+
+        Map<String, Object> attributes = principal.getAttributes();
+        String email = (String) attributes.get("email");
+        String name = (String) attributes.get("name");
+        String picture = (String) attributes.get("picture");
+
+        // TODO: 在这里处理用户信息，比如保存到数据库或生成 JWT token
+
+        return ResponseEntity.ok(Map.of(
+            "email", email,
+            "name", name,
+            "picture", picture
+        ));
+    }
+
+    // @PostMapping("/google")
+    // public ResponseEntity<?> googleLogin(@RequestBody GoogleLoginRequest request) {
+    //     // ... 删除或注释
+    // }
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/dto/CreateTransactionInput.java">
+package com.paytool.dto;
+
+import lombok.Data;
+import java.math.BigDecimal;
+
+@Data
+public class CreateTransactionInput {
+    private String senderId;
+    private String receiverId;
+    private BigDecimal amount;
+    private String description;
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/dto/CreateUserInput.java">
+package com.paytool.dto;
+
+import lombok.Data;
+
+@Data
+public class CreateUserInput {
+    private String username;
+    private String password;
+    private String email;
+    private String name;
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/dto/ErrorResponse.java">
+package com.paytool.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ErrorResponse {
+    private int status;
+    private String error;
+    private String message;
+    private String path;
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/dto/GoogleLoginRequest.java">
+package com.paytool.dto;
+
+public class GoogleLoginRequest {
+    private String credential;
+
+    public String getCredential() {
+        return credential;
+    }
+
+    public void setCredential(String credential) {
+        this.credential = credential;
+    }
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/dto/UpdateUserInput.java">
+package com.paytool.dto;
+
+import lombok.Data;
+
+@Data
+public class UpdateUserInput {
+    private String email;
+    private String name;
+    private String password;
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/graphql/SubscriptionResolver.java">
+package com.paytool.graphql;
+
+//     @SubscriptionMapping
+//     public Publisher<GroupMember> memberStatusChanged(String groupId) {
+//         System.out.println("订阅建立: " + groupId);
+//         return Flux.create(sink -> {
+//             memberSinks.computeIfAbsent(groupId, k -> new ArrayList<>()).add(sink);
+//             sink.onCancel(() -> memberSinks.getOrDefault(groupId, new ArrayList<>()).remove(sink));
+//         }, FluxSink.OverflowStrategy.BUFFER);
+//     }
+
+//     // Methods to publish updates
+//     public void publishGroupUpdate(String groupId, Group group) {
+//         List<FluxSink<Group>> sinks = groupSinks.get(groupId);
+//         if (sinks != null) {
+//             for (FluxSink<Group> sink : sinks) {
+//                 sink.next(group);
+//             }
+//         }
+//     }
+
+//     public void publishMemberUpdate(String groupId, GroupMember member) {
+//         System.out.println("推送事件: " + groupId + " memberId: " + member.getId());
+//         List<FluxSink<GroupMember>> sinks = memberSinks.get(groupId);
+//         if (sinks != null) {
+//             for (FluxSink<GroupMember> sink : sinks) {
+//                 sink.next(member);
+//             }
+//         }
+//     }
+// } 
+
+import com.paytool.model.Group;
+import com.paytool.model.GroupMember;
+import com.paytool.service.GroupPublisher;
+import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Controller;
+
+import reactor.core.publisher.Flux;
+import org.reactivestreams.Publisher;
+import org.springframework.graphql.data.method.annotation.SubscriptionMapping;
+import org.springframework.graphql.data.method.annotation.Argument;
+import java.time.Duration;
+
+@Controller
+public class SubscriptionResolver {
+    private final GroupPublisher groupPublisher;
+
+    public SubscriptionResolver(GroupPublisher groupPublisher) {
+        this.groupPublisher = groupPublisher;
+    }
+
+    @SubscriptionMapping("groupStatusChanged")
+    public Flux<Group> groupStatusChanged(@Argument("groupId") String groupId) {
+        System.out.println("Group subscription established for groupId: " + groupId);
+        return groupPublisher
+            .getGroupStatusFlux(groupId)
+            .doOnNext(g -> System.out.println("Emitting group update: " + g))
+            .doOnCancel(() -> System.out.println("Group subscription cancelled for " + groupId));
+    }
+
+    @SubscriptionMapping("memberStatusChanged")
+    public Flux<GroupMember> memberStatusChanged(@Argument("groupId") String groupId) {
+        System.out.println("Member subscription established for groupId: " + groupId);
+        return groupPublisher
+            .getMemberStatusFlux(groupId)
+            .doOnNext(m -> System.out.println("Emitting member update: " + m))
+            .doOnCancel(() -> System.out.println("Member subscription cancelled for " + groupId));
+    }
+
+    public void publishGroupUpdate(String groupId, Group group) {
+        groupPublisher.publishGroupStatus(groupId, group);
+    }
+
+    public void publishMemberUpdate(String groupId, GroupMember member) {
+        groupPublisher.publishMemberStatus(groupId, member);
+    }
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/model/AuthPayload.java">
+package com.paytool.model;
+
+public class AuthPayload {
+    private String token;
+    private User user;
+
+    public AuthPayload(String token, User user) {
+        this.token = token;
+        this.user = user;
+    }
+
+    public String getToken() {
+        return token;
+    }
+
+    public void setToken(String token) {
+        this.token = token;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/model/GroupStatus.java">
+package com.paytool.model;
+
+public enum GroupStatus {
+    PENDING,
+    ACTIVE,
+    COMPLETED,
+    CANCELLED
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/model/PaymentCard.java">
+package com.paytool.model;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.time.LocalDateTime;
+
+@Data
+@Entity
+@Table(name = "payment_cards")
+public class PaymentCard {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_id", nullable = false)
+    private Group group;
+
+    @Column(nullable = false, unique = true)
+    private String cardNumber;
+
+    @Column(nullable = false)
+    private Double amount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PaymentCardStatus status = PaymentCardStatus.PENDING;
+
+    @CreationTimestamp
+    private LocalDateTime createdAt;
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/model/PaymentCardStatus.java">
+package com.paytool.model;
+
+public enum PaymentCardStatus {
+    PENDING,
+    ACTIVE,
+    USED,
+    EXPIRED
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/model/Transaction.java">
+package com.paytool.model;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Data
+@Entity
+@Table(name = "transactions")
+@EntityListeners(AuditingEntityListener.class)
+public class Transaction {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne
+    @JoinColumn(name = "sender_id", nullable = false)
+    private User sender;
+
+    @ManyToOne
+    @JoinColumn(name = "receiver_id", nullable = false)
+    private User receiver;
+
+    @Column(nullable = false)
+    private BigDecimal amount;
+
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private TransactionStatus status;
+
+    private String description;
+
+    @CreatedDate
+    private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    private LocalDateTime updatedAt;
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/model/TransactionStatus.java">
+package com.paytool.model;
+
+public enum TransactionStatus {
+    PENDING,
+    COMPLETED,
+    FAILED,
+    CANCELLED
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/model/User.java">
+package com.paytool.model;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.time.LocalDateTime;
+
+@Data
+@Entity
+@Table(name = "users")
+@EntityListeners(AuditingEntityListener.class)
+public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true)
+    private String username;
+
+    @Column(nullable = false)
+    private String password;
+
+    @Column(nullable = false, unique = true)
+    private String email;
+
+    @Column(nullable = false)
+    private String name;
+
+    @CreatedDate
+    private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    private LocalDateTime updatedAt;
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/repository/GroupRepository.java">
+package com.paytool.repository;
+
+import com.paytool.model.Group;
+import com.paytool.model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface GroupRepository extends JpaRepository<Group, Long> {
+    List<Group> findByLeader(User leader);
+    Optional<Group> findByQrCode(String qrCode);
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/repository/PaymentCardRepository.java">
+package com.paytool.repository;
+
+import com.paytool.model.Group;
+import com.paytool.model.PaymentCard;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface PaymentCardRepository extends JpaRepository<PaymentCard, Long> {
+    List<PaymentCard> findByGroup(Group group);
+    Optional<PaymentCard> findByCardNumber(String cardNumber);
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/repository/TransactionRepository.java">
+package com.paytool.repository;
+
+import com.paytool.model.Transaction;
+import com.paytool.model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface TransactionRepository extends JpaRepository<Transaction, Long> {
+    List<Transaction> findBySender(User sender);
+    List<Transaction> findByReceiver(User receiver);
+    List<Transaction> findBySenderOrReceiver(User user1, User user2);
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/security/JwtTokenProvider.java">
+package com.paytool.security;
+
+import com.paytool.model.User;
+import io.jsonwebtoken.*;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import jakarta.annotation.PostConstruct;
+import java.util.Date;
+import java.nio.charset.StandardCharsets;
+
+@Component
+public class JwtTokenProvider {
+
+    @Value("${jwt.secret}")
+    private String jwtSecret;
+
+    @Value("${jwt.expiration}")
+    private long jwtExpiration;
+
+    @PostConstruct
+    public void logSecret() {
+        System.out.println("JWT Secret in use: " + jwtSecret);
+    }
+
+    public String generateToken(User user) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + jwtExpiration);
+
+        return Jwts.builder()
+                .setSubject(user.getEmail())
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .signWith(SignatureAlgorithm.HS512, jwtSecret.getBytes(StandardCharsets.UTF_8))
+                .compact();
+    }
+
+    public String getEmailFromToken(String token) {
+        Claims claims = Jwts.parser()
+                .setSigningKey(jwtSecret)
+                .parseClaimsJws(token)
+                .getBody();
+
+        return claims.getSubject();
+    }
+
+    public boolean validateToken(String token) {
+        try {
+            Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(token);
+            return true;
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/service/GoogleAuthService.java">
+package com.paytool.service;
+
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken.Payload;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
+import com.paytool.model.User;
+import com.paytool.repository.UserRepository;
+import com.paytool.security.JwtTokenProvider;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Collections;
+import java.util.Optional;
+
+@Service
+public class GoogleAuthService {
+
+    private final UserRepository userRepository;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final String googleClientId;
+
+    public GoogleAuthService(
+            UserRepository userRepository,
+            JwtTokenProvider jwtTokenProvider,
+            @Value("${spring.security.oauth2.client.registration.google.client-id}") String googleClientId) {
+        this.userRepository = userRepository;
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.googleClientId = googleClientId;
+    }
+
+    @Transactional
+    public String authenticateGoogleUser(String idTokenString) throws Exception {
+        GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
+                GoogleNetHttpTransport.newTrustedTransport(),
+                GsonFactory.getDefaultInstance())
+            .setAudience(Collections.singletonList(googleClientId))
+            .build();
+
+        GoogleIdToken idToken = verifier.verify(idTokenString);
+        if (idToken == null) {
+            throw new IllegalArgumentException("Invalid ID token.");
+        }
+
+        Payload payload = idToken.getPayload();
+        String email = payload.getEmail();
+        String name = (String) payload.get("name");
+        String picture = (String) payload.get("picture");
+
+        // Find or create user
+        User user = userRepository.findByEmail(email)
+                .orElseGet(() -> {
+                    User newUser = new User();
+                    newUser.setEmail(email);
+                    newUser.setName(name);
+                    newUser.setUsername(email.split("@")[0] + System.currentTimeMillis());
+                    // Set a secure random password
+                    newUser.setPassword(java.util.UUID.randomUUID().toString());
+                    return userRepository.save(newUser);
+                });
+
+        // Now generate your own JWT for your app:
+        String jwt = jwtTokenProvider.generateToken(user);
+
+        return jwt;
+    }
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/PayToolApplication.java">
+package com.paytool;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+
+@SpringBootApplication
+@EnableJpaAuditing
+public class PayToolApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(PayToolApplication.class, args);
+    }
+}
+</file>
+
+<file path="backend/src/main/resources/db/changelog/20240525-add-totalpeople.xml">
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="20240525-add-totalpeople" author="paytool">
+        <!-- Add total_people column to payment_groups -->
+        <addColumn tableName="payment_groups">
+            <column name="total_people" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <!-- Modify amount column in group_members -->
+        <addNotNullConstraint tableName="group_members" columnName="amount" columnDataType="DECIMAL(10,2)" defaultValueNumeric="0.00"/>
+    </changeSet>
+
+</databaseChangeLog>
+</file>
+
+<file path="backend/src/main/resources/db/changelog/db.changelog-master.xml">
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <include file="db/changelog/20240525-add-totalpeople.xml"/>
+
+</databaseChangeLog>
+</file>
+
+<file path="backend/src/main/resources/graphql/query.graphql">
+query {
+  hello
+}
+</file>
+
+<file path="backend/.gitignore">
+HELP.md
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Logs ###
+*.log
+logs/
+
+### Application Properties ###
+src/main/resources/application-*.properties
+!src/main/resources/application.properties
+</file>
+
+<file path="backend/.sdkmanrc">
+# Enable auto-env through the sdkman_auto_env config
+# Add key=value pairs of SDKs to use below
+java=17.0.9-tem
+</file>
+
+<file path="frontend/public/file.svg">
+<svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
+</file>
+
+<file path="frontend/public/globe.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><g clip-path="url(#a)"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.27 14.1a6.5 6.5 0 0 0 3.67-3.45q-1.24.21-2.7.34-.31 1.83-.97 3.1M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m.48-1.52a7 7 0 0 1-.96 0H7.5a4 4 0 0 1-.84-1.32q-.38-.89-.63-2.08a40 40 0 0 0 3.92 0q-.25 1.2-.63 2.08a4 4 0 0 1-.84 1.31zm2.94-4.76q1.66-.15 2.95-.43a7 7 0 0 0 0-2.58q-1.3-.27-2.95-.43a18 18 0 0 1 0 3.44m-1.27-3.54a17 17 0 0 1 0 3.64 39 39 0 0 1-4.3 0 17 17 0 0 1 0-3.64 39 39 0 0 1 4.3 0m1.1-1.17q1.45.13 2.69.34a6.5 6.5 0 0 0-3.67-3.44q.65 1.26.98 3.1M8.48 1.5l.01.02q.41.37.84 1.31.38.89.63 2.08a40 40 0 0 0-3.92 0q.25-1.2.63-2.08a4 4 0 0 1 .85-1.32 7 7 0 0 1 .96 0m-2.75.4a6.5 6.5 0 0 0-3.67 3.44 29 29 0 0 1 2.7-.34q.31-1.83.97-3.1M4.58 6.28q-1.66.16-2.95.43a7 7 0 0 0 0 2.58q1.3.27 2.95.43a18 18 0 0 1 0-3.44m.17 4.71q-1.45-.12-2.69-.34a6.5 6.5 0 0 0 3.67 3.44q-.65-1.27-.98-3.1" fill="#666"/></g><defs><clipPath id="a"><path fill="#fff" d="M0 0h16v16H0z"/></clipPath></defs></svg>
+</file>
+
+<file path="frontend/public/next.svg">
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 394 80"><path fill="#000" d="M262 0h68.5v12.7h-27.2v66.6h-13.6V12.7H262V0ZM149 0v12.7H94v20.4h44.3v12.6H94v21h55v12.6H80.5V0h68.7zm34.3 0h-17.8l63.8 79.4h17.9l-32-39.7 32-39.6h-17.9l-23 28.6-23-28.6zm18.3 56.7-9-11-27.1 33.7h17.8l18.3-22.7z"/><path fill="#000" d="M81 79.3 17 0H0v79.3h13.6V17l50.2 62.3H81Zm252.6-.4c-1 0-1.8-.4-2.5-1s-1.1-1.6-1.1-2.6.3-1.8 1-2.5 1.6-1 2.6-1 1.8.3 2.5 1a3.4 3.4 0 0 1 .6 4.3 3.7 3.7 0 0 1-3 1.8zm23.2-33.5h6v23.3c0 2.1-.4 4-1.3 5.5a9.1 9.1 0 0 1-3.8 3.5c-1.6.8-3.5 1.3-5.7 1.3-2 0-3.7-.4-5.3-1s-2.8-1.8-3.7-3.2c-.9-1.3-1.4-3-1.4-5h6c.1.8.3 1.6.7 2.2s1 1.2 1.6 1.5c.7.4 1.5.5 2.4.5 1 0 1.8-.2 2.4-.6a4 4 0 0 0 1.6-1.8c.3-.8.5-1.8.5-3V45.5zm30.9 9.1a4.4 4.4 0 0 0-2-3.3 7.5 7.5 0 0 0-4.3-1.1c-1.3 0-2.4.2-3.3.5-.9.4-1.6 1-2 1.6a3.5 3.5 0 0 0-.3 4c.3.5.7.9 1.3 1.2l1.8 1 2 .5 3.2.8c1.3.3 2.5.7 3.7 1.2a13 13 0 0 1 3.2 1.8 8.1 8.1 0 0 1 3 6.5c0 2-.5 3.7-1.5 5.1a10 10 0 0 1-4.4 3.5c-1.8.8-4.1 1.2-6.8 1.2-2.6 0-4.9-.4-6.8-1.2-2-.8-3.4-2-4.5-3.5a10 10 0 0 1-1.7-5.6h6a5 5 0 0 0 3.5 4.6c1 .4 2.2.6 3.4.6 1.3 0 2.5-.2 3.5-.6 1-.4 1.8-1 2.4-1.7a4 4 0 0 0 .8-2.4c0-.9-.2-1.6-.7-2.2a11 11 0 0 0-2.1-1.4l-3.2-1-3.8-1c-2.8-.7-5-1.7-6.6-3.2a7.2 7.2 0 0 1-2.4-5.7 8 8 0 0 1 1.7-5 10 10 0 0 1 4.3-3.5c2-.8 4-1.2 6.4-1.2 2.3 0 4.4.4 6.2 1.2 1.8.8 3.2 2 4.3 3.4 1 1.4 1.5 3 1.5 5h-5.8z"/></svg>
+</file>
+
+<file path="frontend/public/vercel.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1155 1000"><path d="m577.3 0 577.4 1000H0z" fill="#fff"/></svg>
+</file>
+
+<file path="frontend/public/window.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
+</file>
+
+<file path="frontend/src/app/dashboard/group/[id]/page.tsx">
+"use client";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+
+export default function GroupDetailPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [group, setGroup] = useState<any>(null);
+
+  useEffect(() => {
+    // Group details fetching will be implemented here
+  }, [params.id]);
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-4xl bg-white rounded-lg shadow-sm p-6">
+        <h1 className="text-2xl font-bold text-center mb-6">Group Details</h1>
+        <div className="space-y-4">
+          {/* Group details will be implemented here */}
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => router.push("/dashboard")}
+          >
+            Back to Dashboard
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="frontend/src/app/dashboard/join/page.tsx">
+"use client";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import { LinkIcon } from "lucide-react";
+
+export default function JoinGroupPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [inviteLink, setInviteLink] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [hasJoined, setHasJoined] = useState(false);
+  const groupId = searchParams.get("groupId");
+
+  useEffect(() => {
+    const userId = localStorage.getItem("userId");
+    if (groupId && !hasJoined) {
+      if (!userId) {
+        localStorage.setItem("pendingJoinUrl", window.location.pathname + window.location.search);
+        router.push("/login");
+        return;
+      }
+      setHasJoined(true);
+      handleJoinWithGroupId(groupId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupId, hasJoined]);
+
+  useEffect(() => {
+    // 登录后自动跳回并自动加群
+    const pendingUrl = localStorage.getItem("pendingJoinUrl");
+    const userId = localStorage.getItem("userId");
+    if (pendingUrl && userId && !hasJoined) {
+      localStorage.removeItem("pendingJoinUrl");
+      router.replace(pendingUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleJoinWithGroupId = async (groupId: string) => {
+    setLoading(true);
+    try {
+      const userId = localStorage.getItem("userId");
+      if (!userId) {
+        toast.error("Please login first");
+        return;
+      }
+
+      const response = await fetch("http://localhost:8080/graphql", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: `mutation JoinGroup($groupId: ID!, $userId: ID!) {
+            joinGroup(groupId: $groupId, userId: $userId) {
+              id
+            }
+          }`,
+          variables: {
+            groupId: groupId,
+            userId: userId,
+          },
+        }),
+      });
+
+      const data = await response.json();
+      if (data.errors) {
+        throw new Error(data.errors[0].message);
+      }
+
+      toast.success("Successfully joined the group!");
+      window.location.href = "/dashboard";
+    } catch (error: any) {
+      toast.error(error.message || "Failed to join the group");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleJoin = async () => {
+    if (!inviteLink) {
+      toast.error("Please enter the invite link");
+      return;
+    }
+
+    // Extract group ID from the link
+    const url = new URL(inviteLink);
+    const groupIdFromLink = url.searchParams.get("groupId");
+    
+    if (!groupIdFromLink) {
+      toast.error("Invalid invite link");
+      return;
+    }
+
+    await handleJoinWithGroupId(groupIdFromLink);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white rounded-lg shadow-sm p-6">
+        <h1 className="text-2xl font-bold text-center mb-6">Join Group</h1>
+        <div className="space-y-4">
+          {(loading || groupId) ? (
+            <div className="text-center py-4">Joining group...</div>
+          ) : (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Invite Link
+                </label>
+                <div className="relative">
+                  <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Input
+                    type="text"
+                    value={inviteLink}
+                    onChange={(e) => setInviteLink(e.target.value)}
+                    placeholder="Paste the invite link here"
+                    className="pl-10"
+                  />
+                </div>
+                <p className="mt-2 text-sm text-gray-500">
+                  Please paste the invite link shared by the group leader
+                </p>
+              </div>
+              <Button
+                className="w-full"
+                onClick={handleJoin}
+                disabled={loading}
+              >
+                {loading ? "Joining..." : "Join Group"}
+              </Button>
+            </>
+          )}
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => router.push("/dashboard")}
+          >
+            Back to Dashboard
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="frontend/src/app/dashboard/payment-history/page.tsx">
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+
+export default function PaymentHistoryPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-4xl bg-white rounded-lg shadow-sm p-6">
+        <h1 className="text-2xl font-bold text-center mb-6">Payment History</h1>
+        <div className="space-y-4">
+          {/* Payment history list will be implemented here */}
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => router.push("/dashboard")}
+          >
+            Back to Dashboard
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="frontend/src/app/dashboard/settings/page.tsx">
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
+export default function SettingsPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    currentPassword: "",
+    newPassword: "",
+  });
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white rounded-lg shadow-sm p-6">
+        <h1 className="text-2xl font-bold text-center mb-6">Account Settings</h1>
+        <div className="space-y-4">
+          {/* Profile settings form will be implemented here */}
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => router.push("/dashboard")}
+          >
+            Back to Dashboard
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="frontend/src/app/dashboard/virtual-card/page.tsx">
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+
+export default function VirtualCardPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white rounded-lg shadow-sm p-6">
+        <h1 className="text-2xl font-bold text-center mb-6">Virtual Payment Card</h1>
+        <div className="space-y-4">
+          {/* Card details will be implemented here */}
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => router.push("/dashboard")}
+          >
+            Back to Dashboard
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="frontend/src/app/register/page.tsx">
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+
+export default function RegisterPage() {
+  const [formData, setFormData] = useState({
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    name: '',
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const router = useRouter();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await fetch('http://localhost:8080/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: `mutation Register($input: CreateUserInput!) {
+            createUser(input: $input) {
+              id
+              username
+              email
+              name
+            }
+          }`,
+          variables: {
+            input: {
+              username: formData.username,
+              password: formData.password,
+              email: formData.email,
+              name: formData.name,
+            },
+          },
+        }),
+      });
+      const data = await res.json();
+      if (data.errors && data.errors.length > 0) {
+        setError(data.errors[0].message || 'Registration failed');
+      } else {
+        setSuccess('Registration successful! Redirecting to sign in...');
+        setTimeout(() => {
+          router.push('/login');
+        }, 1500);
+      }
+    } catch (err) {
+      setError('Registration failed, please try again later');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex min-h-[calc(100vh-4rem)] flex-1 flex-col justify-center px-4 py-8 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-sm">
+        <h2 className="text-center text-3xl font-bold leading-9 tracking-tight text-gray-900">
+          Create a new account
+        </h2>
+      </div>
+
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-sm">
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          {error && (
+            <div className="rounded-lg bg-red-50 p-4 mb-2">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-base text-red-700">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          {success && (
+            <div className="rounded-lg bg-green-50 p-4 mb-2">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.293 9.293a1 1 0 011.414 0L10 10.586l.293-.293a1 1 0 111.414 1.414l-1 1a1 1 0 01-1.414 0l-1-1a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-base text-green-700">{success}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          <div>
+            <label htmlFor="username" className="block text-base font-medium leading-6 text-gray-900">
+              Username
+            </label>
+            <div className="mt-1">
+              <Input
+                id="username"
+                name="username"
+                type="text"
+                required
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                placeholder="Enter your username"
+                className="text-base px-4 py-3"
+              />
+            </div>
+          </div>
+          <div>
+            <label htmlFor="name" className="block text-base font-medium leading-6 text-gray-900">
+              Name
+            </label>
+            <div className="mt-1">
+              <Input
+                id="name"
+                name="name"
+                type="text"
+                required
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Enter your name"
+                className="text-base px-4 py-3"
+              />
+            </div>
+          </div>
+          <div>
+            <label htmlFor="email" className="block text-base font-medium leading-6 text-gray-900">
+              Email
+            </label>
+            <div className="mt-1">
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="Enter your email"
+                className="text-base px-4 py-3"
+              />
+            </div>
+          </div>
+          <div>
+            <label htmlFor="password" className="block text-base font-medium leading-6 text-gray-900">
+              Password
+            </label>
+            <div className="mt-1">
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                required
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                placeholder="Enter your password"
+                className="text-base px-4 py-3"
+              />
+            </div>
+          </div>
+          <div>
+            <label htmlFor="confirmPassword" className="block text-base font-medium leading-6 text-gray-900">
+              Confirm Password
+            </label>
+            <div className="mt-1">
+              <Input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                required
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                placeholder="Re-enter your password"
+                className="text-base px-4 py-3"
+              />
+            </div>
+          </div>
+          <Button
+            type="submit"
+            disabled={isLoading}
+            className="w-full rounded-lg text-base px-4 py-3 mt-2"
+          >
+            {isLoading ? (
+              <span className="flex items-center">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Registering...
+              </span>
+            ) : (
+              'Register'
+            )}
+          </Button>
+        </form>
+        <p className="mt-4 text-center text-base text-gray-500">
+          Already have an account?{' '}
+          <Link href="/login" className="font-semibold leading-6 text-primary-600 hover:text-primary-500">
+            Sign in
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="frontend/src/app/globals.css">
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+</file>
+
+<file path="frontend/src/app/page.tsx">
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+
+export default function Home() {
+  return (
+    <div className="relative isolate">
+      <div className="mx-auto max-w-7xl px-4 py-16 sm:py-24 lg:px-8">
+        <div className="mx-auto max-w-2xl text-center">
+          <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl">
+            Group Payment Made Easy
+          </h1>
+          <p className="mt-6 text-lg leading-8 text-gray-600">
+            PayTool helps you manage group payments, split bills, and track expenses with ease.
+            Perfect for roommates, friends, and team expenses.
+          </p>
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link href="/register" className="w-full sm:w-auto">
+              <Button className="w-full sm:w-auto text-base px-6 py-3">Get Started</Button>
+            </Link>
+            <Link href="/login" className="w-full sm:w-auto">
+              <Button variant="outline" className="w-full sm:w-auto text-base px-6 py-3">Sign In</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+      <div className="absolute inset-x-0 top-[calc(100%-13rem)] -z-10 transform-gpu overflow-hidden blur-3xl sm:top-[calc(100%-30rem)]">
+        <div
+          className="relative left-[calc(50%+3rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 bg-gradient-to-tr from-[#ff80b5] to-[#9089fc] opacity-30 sm:left-[calc(50%+36rem)] sm:w-[72.1875rem]"
+          style={{
+            clipPath:
+              'polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)',
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="frontend/src/components/layout/Footer.tsx">
+export default function Footer() {
+  return (
+    <footer className="bg-white">
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 md:flex md:items-center md:justify-between lg:px-8">
+        <div className="flex justify-center space-x-6 md:order-2">
+          <a href="#" className="text-gray-400 hover:text-gray-500">
+            <span className="sr-only">GitHub</span>
+            <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fillRule="evenodd"
+                d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </a>
+        </div>
+        <div className="mt-8 md:order-1 md:mt-0">
+          <p className="text-center text-base text-gray-400">
+            &copy; 2024 PayTool. All rights reserved.
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+}
+</file>
+
+<file path="frontend/src/components/layout/Header.tsx">
+'use client';
+
+import Link from 'next/link';
+import { Fragment, useEffect, useState } from 'react';
+import { Disclosure, Menu, Transition } from '@headlessui/react';
+import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
+
+// 只保留首页导航项
+const navigation = [
+  // { name: 'Home', href: '/', current: true },
+];
+
+function classNames(...classes: string[]) {
+  return classes.filter(Boolean).join(' ');
+}
+
+export default function Header() {
+  const [userId, setUserId] = useState<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setUserId(localStorage.getItem('userId'));
+    }
+  }, []);
+
+  if (userId === undefined) {
+    // 初始加载中
+    return (
+      <nav className="bg-white shadow h-16 flex items-center px-4">
+        <span className="text-2xl font-bold text-primary-600">PayTool</span>
+        <span className="ml-4 text-gray-400 animate-pulse">Loading...</span>
+      </nav>
+    );
+  }
+
+  return (
+    <Disclosure as="nav" className="bg-white shadow">
+      {({ open }) => (
+        <>
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="flex h-16 justify-between">
+              <div className="flex">
+                <div className="flex flex-shrink-0 items-center">
+                  <Link href="/" className="text-2xl font-bold text-primary-600">
+                    PayTool
+                  </Link>
+                </div>
+                {/* 不显示导航项 */}
+              </div>
+              <div className="hidden sm:ml-6 sm:flex sm:items-center">
+                <Menu as="div" className="relative ml-3">
+                  <div>
+                    <Menu.Button className="flex rounded-full bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+                      <span className="sr-only">Open user menu</span>
+                      <div className="h-8 w-8 rounded-full bg-primary-500 flex items-center justify-center text-white">
+                        {userId ? 'U' : '?'}
+                      </div>
+                    </Menu.Button>
+                  </div>
+                  <Transition
+                    as={Fragment}
+                    enter="transition ease-out duration-200"
+                    enterFrom="transform opacity-0 scale-95"
+                    enterTo="transform opacity-100 scale-100"
+                    leave="transition ease-in duration-75"
+                    leaveFrom="transform opacity-100 scale-100"
+                    leaveTo="transform opacity-0 scale-95"
+                  >
+                    <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                      {userId ? (
+                        <Menu.Item>
+                          {({ active }) => (
+                            <span
+                              className={classNames(
+                                active ? 'bg-gray-100' : '',
+                                'block px-4 py-2 text-sm text-gray-700 cursor-default'
+                              )}
+                            >
+                              Signed in
+                            </span>
+                          )}
+                        </Menu.Item>
+                      ) : (
+                        <>
+                          <Menu.Item>
+                            {({ active }) => (
+                              <Link
+                                href="/login"
+                                className={classNames(
+                                  active ? 'bg-gray-100' : '',
+                                  'block px-4 py-2 text-sm text-gray-700'
+                                )}
+                              >
+                                Sign In
+                              </Link>
+                            )}
+                          </Menu.Item>
+                          <Menu.Item>
+                            {({ active }) => (
+                              <Link
+                                href="/register"
+                                className={classNames(
+                                  active ? 'bg-gray-100' : '',
+                                  'block px-4 py-2 text-sm text-gray-700'
+                                )}
+                              >
+                                Register
+                              </Link>
+                            )}
+                          </Menu.Item>
+                        </>
+                      )}
+                    </Menu.Items>
+                  </Transition>
+                </Menu>
+              </div>
+              <div className="-mr-2 flex items-center sm:hidden">
+                <Disclosure.Button className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500">
+                  <span className="sr-only">Open main menu</span>
+                  {open ? (
+                    <XMarkIcon className="block h-6 w-6" aria-hidden="true" />
+                  ) : (
+                    <Bars3Icon className="block h-6 w-6" aria-hidden="true" />
+                  )}
+                </Disclosure.Button>
+              </div>
+            </div>
+          </div>
+
+          {/* 移动端菜单也不显示导航项 */}
+          <Disclosure.Panel className="sm:hidden">
+            <div className="space-y-1 pb-3 pt-2">
+              {/* 无导航项 */}
+            </div>
+            <div className="border-t border-gray-200 pb-3 pt-4">
+              <div className="flex items-center px-4">
+                <div className="flex-shrink-0">
+                  <div className="h-10 w-10 rounded-full bg-primary-500 flex items-center justify-center text-white">
+                    {userId ? 'U' : '?'}
+                  </div>
+                </div>
+                <div className="ml-3">
+                  <div className="text-base font-medium text-gray-800">{userId ? 'User' : 'Guest'}</div>
+                  <div className="text-sm font-medium text-gray-500">{userId ? 'Signed in' : 'Not signed in'}</div>
+                </div>
+              </div>
+              <div className="mt-3 space-y-1">
+                {userId ? (
+                  <span className="block px-4 py-2 text-base text-gray-500 cursor-default">Signed in</span>
+                ) : (
+                  <>
+                    <Disclosure.Button
+                      as="a"
+                      href="/login"
+                      className="block px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                    >
+                      Sign In
+                    </Disclosure.Button>
+                    <Disclosure.Button
+                      as="a"
+                      href="/register"
+                      className="block px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                    >
+                      Register
+                    </Disclosure.Button>
+                  </>
+                )}
+              </div>
+            </div>
+          </Disclosure.Panel>
+        </>
+      )}
+    </Disclosure>
+  );
+}
+</file>
+
+<file path="frontend/src/components/ui/button.tsx">
+import * as React from "react"
+import { Slot } from "@radix-ui/react-slot"
+import { cva, type VariantProps } from "class-variance-authority"
+
+import { cn } from "@/lib/utils"
+
+const buttonVariants = cva(
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  {
+    variants: {
+      variant: {
+        default:
+          "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
+        destructive:
+          "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+        outline:
+          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
+        secondary:
+          "bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80",
+        ghost:
+          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+        link: "text-primary underline-offset-4 hover:underline",
+      },
+      size: {
+        default: "h-9 px-4 py-2 has-[>svg]:px-3",
+        sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
+        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
+        icon: "size-9",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
+  }
+)
+
+function Button({
+  className,
+  variant,
+  size,
+  asChild = false,
+  ...props
+}: React.ComponentProps<"button"> &
+  VariantProps<typeof buttonVariants> & {
+    asChild?: boolean
+  }) {
+  const Comp = asChild ? Slot : "button"
+
+  return (
+    <Comp
+      data-slot="button"
+      className={cn(buttonVariants({ variant, size, className }))}
+      {...props}
+    />
+  )
+}
+
+export { Button, buttonVariants }
+</file>
+
+<file path="frontend/src/components/ui/input.tsx">
+import * as React from "react"
+
+import { cn } from "@/lib/utils"
+
+function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+  return (
+    <input
+      type={type}
+      data-slot="input"
+      className={cn(
+        "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+        "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+export { Input }
+</file>
+
+<file path="frontend/src/components/ui/textarea.tsx">
+import * as React from "react"
+
+import { cn } from "@/lib/utils"
+
+export interface TextareaProps
+  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {}
+
+const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
+  ({ className, ...props }, ref) => {
+    return (
+      <textarea
+        className={cn(
+          "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          className
+        )}
+        ref={ref}
+        {...props}
+      />
+    )
+  }
+)
+Textarea.displayName = "Textarea"
+
+export { Textarea }
+</file>
+
+<file path="frontend/src/components/Providers.tsx">
+'use client';
+
+import { GoogleOAuthProvider } from '@react-oauth/google';
+
+export default function Providers({ children }: { children: React.ReactNode }) {
+  console.log('Google Client ID:', process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
+
+  return (
+    <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}>
+      {children}
+    </GoogleOAuthProvider>
+  );
+}
+</file>
+
+<file path="frontend/src/hooks/useSubscription.ts">
+import { useEffect, useState } from "react";
+import { Client, createClient, ExecutionResult } from "graphql-ws";
+
+interface Group {
+  id: string;
+  totalAmount: number;
+  totalPeople: number;
+  description: string;
+  status: string;
+}
+
+interface User {
+  id: string;
+  name: string;
+}
+
+interface GroupMember {
+  id: string;
+  amount: number;
+  status: string;
+  user: User;
+}
+
+interface SubscriptionResponse<T> {
+  data: {
+    groupStatusChanged?: T;
+    memberStatusChanged?: T;
+  } | null;
+}
+
+type GroupSubscriptionData = {
+  groupStatusChanged: Group;
+};
+
+type MemberSubscriptionData = {
+  memberStatusChanged: GroupMember;
+};
+
+const client = createClient({
+  url: "ws://localhost:8080/graphql",
+  connectionParams: {
+    // Add any authentication headers or tokens if needed
+  },
+  retryAttempts: 5,
+  connectionAckWaitTimeout: 10000, // 10 seconds
+  lazy: false, // Connect immediately
+  on: {
+    connected: () => {
+      console.log("WebSocket connected");
+    },
+    connecting: () => {
+      console.log("WebSocket connecting");
+    },
+    error: (error) => {
+      console.error("WebSocket error:", error);
+    },
+    closed: (event) => {
+      console.log("WebSocket closed:", event);
+    },
+  },
+  webSocketImpl: WebSocket,
+});
+
+export function useGroupSubscription(groupId: string) {
+  const [group, setGroup] = useState<Group | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    return client.subscribe<GroupSubscriptionData>(
+      {
+        query: `
+          subscription GroupStatusChanged($groupId: ID!) {
+            groupStatusChanged(groupId: $groupId) {
+              id
+              totalAmount
+              totalPeople
+              description
+              status
+            }
+          }
+        `,
+        variables: { groupId },
+      },
+      {
+        next: (result: ExecutionResult<GroupSubscriptionData>) => {
+          if (result.data?.groupStatusChanged) {
+            setGroup(result.data.groupStatusChanged);
+          }
+        },
+        error: (err: Error) => {
+          setError(err);
+        },
+        complete: () => {
+          console.log("Subscription completed");
+        },
+      }
+    );
+  }, [groupId]);
+
+  return { group, error };
+}
+
+export function useMemberSubscription(groupId: string) {
+  const [member, setMember] = useState<GroupMember | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    return client.subscribe<MemberSubscriptionData>(
+      {
+        query: `
+          subscription MemberStatusChanged($groupId: ID!) {
+            memberStatusChanged(groupId: $groupId) {
+              id
+              amount
+              status
+              user {
+                id
+                name
+              }
+            }
+          }
+        `,
+        variables: { groupId },
+      },
+      {
+        next: (result: ExecutionResult<MemberSubscriptionData>) => {
+          if (result.data?.memberStatusChanged) {
+            setMember(result.data.memberStatusChanged);
+          }
+        },
+        error: (err: Error) => {
+          setError(err);
+        },
+        complete: () => {
+          console.log("Subscription completed");
+        },
+      }
+    );
+  }, [groupId]);
+
+  return { member, error };
+}
+</file>
+
+<file path="frontend/src/lib/utils.ts">
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+</file>
+
+<file path="frontend/.env.example">
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=211473285848-tptiv712dk23v369emgamq2iocg3e0he.apps.googleusercontent.com
+</file>
+
+<file path="frontend/components.json">
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "rsc": true,
+  "tsx": true,
+  "tailwind": {
+    "config": "tailwind.config.js",
+    "css": "src/app/globals.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "aliases": {
+    "components": "@/components",
+    "utils": "@/lib/utils",
+    "ui": "@/components/ui",
+    "lib": "@/lib",
+    "hooks": "@/hooks"
+  },
+  "iconLibrary": "lucide"
+}
+</file>
+
+<file path="frontend/eslint.config.mjs">
+import { dirname } from "path";
+import { fileURLToPath } from "url";
+import { FlatCompat } from "@eslint/eslintrc";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const compat = new FlatCompat({
+  baseDirectory: __dirname,
+});
+
+const eslintConfig = [
+  ...compat.extends("next/core-web-vitals", "next/typescript"),
+];
+
+export default eslintConfig;
+</file>
+
+<file path="frontend/postcss.config.mjs">
+const config = {
+  plugins: ["@tailwindcss/postcss"],
+};
+
+export default config;
+</file>
+
+<file path="frontend/README.md">
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+</file>
+
+<file path="frontend/tailwind.config.js">
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          50: '#f0f9ff',
+          100: '#e0f2fe',
+          200: '#bae6fd',
+          300: '#7dd3fc',
+          400: '#38bdf8',
+          500: '#0ea5e9',
+          600: '#0284c7',
+          700: '#0369a1',
+          800: '#075985',
+          900: '#0c4a6e',
+        },
+        secondary: {
+          50: '#f8fafc',
+          100: '#f1f5f9',
+          200: '#e2e8f0',
+          300: '#cbd5e1',
+          400: '#94a3b8',
+          500: '#64748b',
+          600: '#475569',
+          700: '#334155',
+          800: '#1e293b',
+          900: '#0f172a',
+        },
+      },
+      fontFamily: {
+        sans: ['Inter var', 'sans-serif'],
+      },
+    },
+  },
+  plugins: [
+    require('@tailwindcss/forms'),
+  ],
+}
+</file>
+
+<file path="frontend/tsconfig.json">
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+</file>
+
+<file path=".gitignore">
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Testing
+coverage/
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Production
+build/
+dist/
+
+# Misc
+.DS_Store
+*.pem
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Java
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+*.ctxt
+.mtj.tmp/
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+replay_pid*
+
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Spring Boot
+spring-boot-devtools.restart.trigger
+spring-boot-devtools.restart.enabled
+spring-boot-devtools.restart.additional-paths
+spring-boot-devtools.restart.exclude
+</file>
+
+<file path="final-project-paytool.iml">
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+  <component name="NewModuleRootManager" inherit-compiler-output="true">
+    <exclude-output />
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/backend/src/main/java" isTestSource="false" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>
+</file>
+
+<file path="package.json">
+{
+  "dependencies": {
+    "graphql-ws": "^6.0.5"
+  }
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/controller/GlobalExceptionHandler.java">
+package com.paytool.controller;
+
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.ModelAndView;
+import jakarta.servlet.ServletException;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@ControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(NoHandlerFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoHandlerFoundException(NoHandlerFoundException ex, HttpServletRequest request) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", HttpStatus.NOT_FOUND.value());
+        response.put("error", "Not Found");
+        response.put("message", "The requested resource was not found");
+        response.put("path", request.getRequestURI());
+        
+        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, Object>> handleGlobalException(Exception ex, HttpServletRequest request) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+        response.put("error", "Internal Server Error");
+        response.put("message", ex.getMessage());
+        response.put("path", request.getRequestURI());
+        
+        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(ServletException.class)
+    public ResponseEntity<Map<String, Object>> handleServletException(ServletException ex, HttpServletRequest request) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+        response.put("error", "View Error");
+        response.put("message", ex.getMessage());
+        response.put("path", request.getRequestURI());
+        
+        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/dto/CreateGroupInput.java">
+package com.paytool.dto;
+
+import lombok.Data;
+
+@Data
+public class CreateGroupInput {
+    private Long leaderId;
+    private Double totalAmount;
+    private String name;
+    private String description;
+    private Integer totalPeople;
+
+    public Integer getTotalPeople() {
+        return totalPeople;
+    }
+    
+    public void setTotalPeople(Integer totalPeople) {
+        this.totalPeople = totalPeople;
+    }
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/graphql/QueryResolver.java">
+package com.paytool.graphql;
+
+import com.paytool.model.Group;
+import com.paytool.model.GroupMember;
+import com.paytool.model.Transaction;
+import com.paytool.model.User;
+import com.paytool.repository.GroupMemberRepository;
+import com.paytool.repository.GroupRepository;
+import com.paytool.repository.TransactionRepository;
+import com.paytool.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.graphql.data.method.annotation.Argument;
+import org.springframework.graphql.data.method.annotation.QueryMapping;
+import org.springframework.stereotype.Controller;
+
+import java.util.List;
+
+@Controller
+@RequiredArgsConstructor
+public class QueryResolver {
+    private final UserRepository userRepository;
+    private final GroupRepository groupRepository;
+    private final GroupMemberRepository groupMemberRepository;
+    private final TransactionRepository transactionRepository;
+
+    @QueryMapping
+    public String hello() {
+        return "Hello from PayTool GraphQL!";
+    }
+
+    @QueryMapping
+    public User user(@Argument Long id) {
+        return userRepository.findById(id).orElse(null);
+    }
+
+    @QueryMapping
+    public List<User> users() {
+        return userRepository.findAll();
+    }
+
+    @QueryMapping
+    public Group group(@Argument Long id) {
+        return groupRepository.findById(id).orElse(null);
+    }
+
+    @QueryMapping
+    public List<Group> groups() {
+        return groupRepository.findAll();
+    }
+
+    @QueryMapping
+    public List<Group> userGroups(@Argument Long userId) {
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return List.of();
+        }
+        List<GroupMember> memberships = groupMemberRepository.findByUser(user);
+        return memberships.stream().map(GroupMember::getGroup).distinct().toList();
+    }
+
+    @QueryMapping
+    public List<GroupMember> groupMembers(@Argument Long groupId) {
+        Group group = groupRepository.findById(groupId).orElse(null);
+        if (group == null) {
+            return List.of();
+        }
+        return groupMemberRepository.findByGroup(group);
+    }
+
+    @QueryMapping
+    public Transaction transaction(@Argument Long id) {
+        return transactionRepository.findById(id).orElse(null);
+    }
+
+    @QueryMapping
+    public List<Transaction> transactions() {
+        return transactionRepository.findAll();
+    }
+
+    @QueryMapping
+    public List<Transaction> userTransactions(@Argument Long userId) {
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return List.of();
+        }
+        return transactionRepository.findBySenderOrReceiver(user, user);
+    }
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/model/GroupMember.java">
+package com.paytool.model;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.time.LocalDateTime;
+
+@Data
+@Entity
+@Table(name = "group_members")
+public class GroupMember {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_id", nullable = false)
+    private Group group;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @Column(nullable = false)
+    private Double amount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private MemberStatus status = MemberStatus.PENDING;
+
+    @CreationTimestamp
+    private LocalDateTime joinedAt;
+
+    @Override
+    public String toString() {
+        return "GroupMember{id=" + id + ", status=" + status + ", amount=" + amount + ", groupId=" + (group != null ? group.getId() : null) + ", userId=" + (user != null ? user.getId() : null) + "}";
+    }
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/repository/GroupMemberRepository.java">
+package com.paytool.repository;
+
+import com.paytool.model.Group;
+import com.paytool.model.GroupMember;
+import com.paytool.model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> {
+    List<GroupMember> findByGroup(Group group);
+    List<GroupMember> findByUser(User user);
+    Optional<GroupMember> findByGroupAndUser(Group group, User user);
+    Optional<GroupMember> findByGroupIdAndUserId(Long groupId, Long userId);
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/repository/UserRepository.java">
+package com.paytool.repository;
+
+import com.paytool.model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface UserRepository extends JpaRepository<User, Long> {
+    Optional<User> findByEmail(String email);
+    Optional<User> findByUsername(String username);
+    boolean existsByUsername(String username);
+    boolean existsByEmail(String email);
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/service/GroupPublisher.java">
+package com.paytool.service;
+
+import com.paytool.model.Group;
+import com.paytool.model.GroupMember;
+import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Sinks;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Component
+public class GroupPublisher {
+    private final Map<String, Sinks.Many<Group>> groupSinks = new ConcurrentHashMap<>();
+    private final Map<String, Sinks.Many<GroupMember>> memberSinks = new ConcurrentHashMap<>();
+
+    public Flux<Group> getGroupStatusFlux(String groupId) {
+        System.out.println("Creating group flux for groupId: " + groupId);
+        return getOrCreateGroupSink(groupId).asFlux();
+    }
+
+    public Flux<GroupMember> getMemberStatusFlux(String groupId) {
+        System.out.println("Creating member flux for groupId: " + groupId);
+        return getOrCreateMemberSink(groupId).asFlux();
+    }
+
+    public void publishGroupStatus(String groupId, Group group) {
+        System.out.println("Publishing group status for groupId: " + groupId);
+        Sinks.Many<Group> sink = groupSinks.get(groupId);
+        if (sink != null) {
+            sink.tryEmitNext(group);
+        }
+    }
+
+    public void publishMemberStatus(String groupId, GroupMember member) {
+        System.out.println("Publishing member status for groupId: " + groupId + ", member: " + member.getId());
+        Sinks.Many<GroupMember> sink = memberSinks.get(groupId);
+        if (sink != null) {
+            System.out.println("Sink found, emitting member update");
+            sink.tryEmitNext(member);
+        } else{
+            System.out.println("No sink found for groupId: " + groupId);
+        }
+    }
+
+    private Sinks.Many<Group> getOrCreateGroupSink(String groupId) {
+        return groupSinks.computeIfAbsent(groupId, k -> {
+            System.out.println("Creating new group sink for groupId: " + k);
+            return Sinks.many().multicast().onBackpressureBuffer();
+        });
+    }
+
+    private Sinks.Many<GroupMember> getOrCreateMemberSink(String groupId) {
+        return memberSinks.computeIfAbsent(groupId, k -> {
+            System.out.println("Creating new member sink for groupId: " + k);
+            return Sinks.many().multicast().onBackpressureBuffer();
+        });
+    }
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/service/GroupService.java">
+package com.paytool.service;
+
+import com.paytool.model.Group;
+import com.paytool.model.GroupMember;
+import com.paytool.model.User;
+import com.paytool.model.GroupStatus;
+import com.paytool.model.MemberStatus;
+import com.paytool.repository.GroupMemberRepository;
+import com.paytool.repository.GroupRepository;
+import com.paytool.repository.UserRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class GroupService {
+    private final GroupRepository groupRepository;
+    private final UserRepository userRepository;
+    private final GroupMemberRepository groupMemberRepository;
+    private final GroupPublisher groupPublisher;
+
+    public GroupService(
+            GroupRepository groupRepository,
+            UserRepository userRepository,
+            GroupMemberRepository groupMemberRepository,
+            GroupPublisher groupPublisher) {
+        this.groupRepository = groupRepository;
+        this.userRepository = userRepository;
+        this.groupMemberRepository = groupMemberRepository;
+        this.groupPublisher = groupPublisher;
+    }
+
+    @Transactional
+    public GroupMember joinGroup(Long groupId, Long userId) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new RuntimeException("Group not found"));
+
+        if (group.getStatus() != GroupStatus.PENDING && group.getStatus() != GroupStatus.ACTIVE) {
+            throw new RuntimeException("Group is not available for joining");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 检查该用户是否已在组内
+        boolean alreadyInGroup = group.getMembers().stream()
+                .anyMatch(member -> member.getUser() != null && member.getUser().getId().equals(userId));
+        if (alreadyInGroup) {
+            throw new RuntimeException("User already in the group");
+        }
+
+        // 统计现有成员数
+        long currentMemberCount = group.getMembers().stream()
+                .filter(member -> member.getUser() != null)
+                .count();
+        if (currentMemberCount >= group.getTotalPeople()) {
+            throw new RuntimeException("No available slots in the group");
+        }
+
+        // 新建成员
+        GroupMember newMember = new GroupMember();
+        newMember.setGroup(group);
+        newMember.setUser(user);
+        newMember.setStatus(MemberStatus.PENDING);
+        newMember.setAmount(0.0); // 可根据业务逻辑分配金额
+        groupMemberRepository.save(newMember);
+
+        groupPublisher.publishMemberStatus(groupId.toString(), newMember);
+        return newMember;
+    }
+
+    @Transactional
+    public GroupMember updateMemberStatus(Long groupId, Long userId, MemberStatus status) {
+        GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, userId)
+                .orElseThrow(() -> new RuntimeException("Member not found"));
+
+        member.setStatus(status);
+        member = groupMemberRepository.save(member);
+
+        groupPublisher.publishMemberStatus(groupId.toString(), member);
+        return member;
+    }
+
+    @Transactional
+    public Group updateGroupStatus(Long groupId, GroupStatus status) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new RuntimeException("Group not found"));
+
+        group.setStatus(status);
+        Group updatedGroup = groupRepository.save(group);
+
+        groupPublisher.publishGroupStatus(groupId.toString(), updatedGroup);
+        return updatedGroup;
+    }
+}
+</file>
+
+<file path="frontend/src/app/dashboard/create-group/page.tsx">
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+
+export default function CreateGroupPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    description: "",
+    totalAmount: "",
+    totalPeople: "",
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (
+      !formData.description ||
+      !formData.totalAmount ||
+      !formData.totalPeople
+    ) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const userId = localStorage.getItem("userId");
+      if (!userId) {
+        throw new Error("User not logged in");
+      }
+
+      const response = await fetch("http://localhost:8080/graphql", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: `mutation CreateGroup($input: CreateGroupInput!) {
+            createGroup(input: $input) {
+              id
+              totalAmount
+              totalPeople
+              description
+              status
+            }
+          }`,
+          variables: {
+            input: {
+              leaderId: userId,
+              totalAmount: parseFloat(formData.totalAmount),
+              totalPeople: parseInt(formData.totalPeople),
+              description: formData.description,
+            },
+          },
+        }),
+      });
+
+      const data = await response.json();
+      if (data.errors) {
+        throw new Error(data.errors[0].message);
+      }
+
+      toast.success("Group created successfully!");
+      router.push("/dashboard");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to create group");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white rounded-lg shadow-sm p-6">
+        <h1 className="text-2xl font-bold text-center mb-6">Create Group</h1>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Group Description
+            </label>
+            <Textarea
+              value={formData.description}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+              placeholder="Enter group description"
+              rows={3}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Total Amount
+            </label>
+            <Input
+              type="number"
+              value={formData.totalAmount}
+              onChange={(e) =>
+                setFormData({ ...formData, totalAmount: e.target.value })
+              }
+              placeholder="Enter total amount"
+              step="0.01"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Total People
+            </label>
+            <Input
+              type="number"
+              value={formData.totalPeople}
+              onChange={(e) =>
+                setFormData({ ...formData, totalPeople: e.target.value })
+              }
+              placeholder="Enter number of people"
+              min="1"
+            />
+          </div>
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? "Creating..." : "Create Group"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => router.push("/dashboard")}
+          >
+            Back to Dashboard
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="frontend/src/app/dashboard/page.tsx">
+"use client";
+import { useEffect, useState, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  QrCodeIcon,
+  PlusIcon,
+  MenuIcon,
+  UserIcon,
+  SearchIcon,
+  LinkIcon,
+  CopyIcon,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useMemberSubscription } from "@/hooks/useSubscription";
+
+// 群组列表项组件
+function GroupListItem({ group, selected, onClick }: any) {
+  return (
+    <div
+      className={`cursor-pointer px-4 py-3 border-b hover:bg-primary-50 ${
+        selected ? "bg-primary-100 font-bold" : ""
+      }`}
+      onClick={onClick}
+    >
+      <div className="flex justify-between items-center">
+        <span>{group.description || `Group #${group.id}`}</span>
+        <span className="text-xs text-gray-500">${group.totalAmount}</span>
+      </div>
+      <div className="text-xs text-gray-400">{group.status}</div>
+    </div>
+  );
+}
+
+// 群组详情组件
+function GroupDetail({ group, userId, setGroup }: any) {
+  const [updating, setUpdating] = useState<string | null>(null);
+  const [members, setMembers] = useState<any[]>(group?.members || []);
+  const [generatingCard, setGeneratingCard] = useState(false);
+  const [cardInfo, setCardInfo] = useState<any>(null);
+  const [wsUpdateReceived, setWsUpdateReceived] = useState(false);
+
+  // WebSocket subscription for member status changes
+  const { member: liveMember } = useMemberSubscription(group?.id);
+
+  useEffect(() => {
+    setMembers(group?.members || []);
+  }, [group]);
+
+  // Handle real-time updates via WebSocket
+  useEffect(() => {
+    if (liveMember) {
+      console.log("🔄 WebSocket update received:", liveMember);
+      setWsUpdateReceived(true);
+
+      // Update the member in our local state
+      setMembers((prevMembers) =>
+        prevMembers.map((m) =>
+          m.id === liveMember.id ? { ...m, status: liveMember.status } : m
+        )
+      );
+
+      // Show a toast notification for real-time updates
+      if (!updating) {
+        // Only show if we're not the one who triggered the update
+        toast.info(`Member status updated via WebSocket: ${liveMember.status}`);
+      }
+
+      // Reset the update indicator after 3 seconds
+      setTimeout(() => setWsUpdateReceived(false), 3000);
+    }
+  }, [liveMember, updating]);
+
+  const handleUpdateStatus = async (
+    status: "AGREED" | "DISAGREED",
+    memberId: string
+  ) => {
+    setUpdating(memberId + status);
+    try {
+      // Optimistic UI update (immediate feedback)
+      const updatedMembers = members.map((m) =>
+        m.id === memberId ? { ...m, status } : m
+      );
+      setMembers(updatedMembers);
+
+      console.log("📤 Sending status update via GraphQL mutation");
+
+      // Send the update to the server
+      const response = await fetch("http://localhost:8080/graphql", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: `mutation UpdateMemberStatus($groupId: ID!, $userId: ID!, $status: MemberStatus!) {
+            updateMemberStatus(groupId: $groupId, userId: $userId, status: $status) {
+              id
+              status
+            }
+          }`,
+          variables: {
+            groupId: group.id,
+            userId: userId,
+            status,
+          },
+        }),
+      });
+
+      const data = await response.json();
+      if (data.errors) {
+        throw new Error(data.errors[0].message);
+      }
+
+      console.log(
+        "✅ GraphQL mutation successful, waiting for WebSocket update"
+      );
+      toast.success(`Status changed to ${status}! Waiting for confirmation...`);
+
+      // The actual UI update will now come from the WebSocket subscription
+      // We don't need to manually update the state here anymore
+
+      // Check if all members have agreed
+      const allAgreed = updatedMembers.every((m) => m.status === "AGREED");
+      if (allAgreed) {
+        // Update group status to ACTIVE
+        const updateGroupResponse = await fetch(
+          "http://localhost:8080/graphql",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: `mutation UpdateGroupStatus($groupId: ID!, $status: GroupStatus!) {
+              updateGroupStatus(groupId: $groupId, status: $status) {
+                id
+                status
+              }
+            }`,
+              variables: {
+                groupId: group.id,
+                status: "ACTIVE",
+              },
+            }),
+          }
+        );
+
+        const updateGroupData = await updateGroupResponse.json();
+        if (updateGroupData.errors) {
+          throw new Error(updateGroupData.errors[0].message);
+        }
+
+        // Update local group status
+        setGroup((prev: any) => ({ ...prev, status: "ACTIVE" }));
+        toast.success("All members agreed! Group is now active.");
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update status");
+      // Revert the optimistic update if there was an error
+      setMembers(group?.members || []);
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const handleGenerateCard = async () => {
+    if (!group || !userId) {
+      toast.error("No group selected or user not logged in");
+      return;
+    }
+
+    setGeneratingCard(true);
+    try {
+      console.log("Generating card for group:", group.id);
+      const response = await fetch("http://localhost:8080/graphql", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: `mutation GeneratePaymentCard($groupId: ID!) {
+            generatePaymentCard(groupId: $groupId) {
+              id
+              cardNumber
+              amount
+              status
+              createdAt
+            }
+          }`,
+          variables: {
+            groupId: group.id,
+          },
+        }),
+      });
+
+      const data = await response.json();
+      console.log("Response data:", data);
+
+      if (data.errors) {
+        throw new Error(data.errors[0].message);
+      }
+
+      if (!data.data?.generatePaymentCard) {
+        throw new Error("No card data received");
+      }
+
+      setCardInfo(data.data.generatePaymentCard);
+      toast.success("Virtual card generated successfully!");
+    } catch (error: any) {
+      console.error("Error generating card:", error);
+      toast.error(error.message || "Failed to generate virtual card");
+    } finally {
+      setGeneratingCard(false);
+    }
+  };
+
+  if (!group)
+    return (
+      <div className="text-gray-400 text-center mt-20">
+        Select a group to view details
+      </div>
+    );
+
+  return (
+    <div className="w-full max-w-4xl mx-auto p-4">
+      {/* Group Info Header */}
+      <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <h2 className="text-2xl font-bold mb-2">
+          {group.description || `Group #${group.id}`}
+        </h2>
+        <div className="flex items-center gap-4 text-gray-600">
+          <div className="flex items-center gap-2">
+            <UserIcon className="w-5 h-5" />
+            <span>Leader: {group.leader?.name || group.leader?.username}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="font-semibold">${group.totalAmount}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              className={`px-2 py-1 rounded-full text-sm ${
+                group.status === "ACTIVE"
+                  ? "bg-green-100 text-green-800"
+                  : group.status === "COMPLETED"
+                  ? "bg-blue-100 text-blue-800"
+                  : "bg-gray-100 text-gray-800"
+              }`}
+            >
+              {group.status}
+            </span>
+          </div>
+          {wsUpdateReceived && (
+            <span className="px-2 py-1 rounded-full text-sm bg-blue-100 text-blue-800 animate-pulse">
+              WebSocket Update
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Members List */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        {members?.map((member: any) => (
+          <div key={member.id} className="bg-white rounded-lg shadow-sm p-4">
+            <div className="flex items-start gap-3">
+              {/* Avatar */}
+              <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center text-primary-600">
+                <UserIcon className="w-6 h-6" />
+              </div>
+
+              {/* Member Info */}
+              <div className="flex-1">
+                <div className="font-semibold">
+                  {member.user?.name || member.user?.username}
+                </div>
+                <div className="text-sm text-gray-500">${member.amount}</div>
+                <div
+                  className={`mt-2 inline-block px-2 py-1 rounded-full text-xs ${
+                    member.status === "AGREED"
+                      ? "bg-green-100 text-green-800"
+                      : member.status === "DISAGREED"
+                      ? "bg-red-100 text-red-800"
+                      : "bg-gray-100 text-gray-800"
+                  }`}
+                >
+                  {member.status}
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons (only visible to current user) */}
+            {String(member.user?.id) === String(userId) && (
+              <div className="mt-4 flex gap-2">
+                <Button
+                  size="sm"
+                  disabled={!!updating}
+                  variant={member.status === "AGREED" ? "default" : "outline"}
+                  onClick={() => handleUpdateStatus("AGREED", member.id)}
+                  className="flex-1"
+                >
+                  {updating === member.id + "AGREED" ? "Agreeing..." : "Agree"}
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!!updating}
+                  variant={
+                    member.status === "DISAGREED" ? "default" : "outline"
+                  }
+                  onClick={() => handleUpdateStatus("DISAGREED", member.id)}
+                  className="flex-1"
+                >
+                  {updating === member.id + "DISAGREED"
+                    ? "Disagreeing..."
+                    : "Disagree"}
+                </Button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Virtual Card Generation (only visible to group leader) */}
+      {String(group.leader?.id) === String(userId) && (
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <h3 className="text-lg font-semibold mb-4">Group Payment</h3>
+          {!cardInfo ? (
+            <Button
+              className="w-full"
+              onClick={handleGenerateCard}
+              disabled={generatingCard}
+            >
+              {generatingCard ? "Generating..." : "Generate Virtual Card"}
+            </Button>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg p-6 text-white">
+                <div className="text-sm mb-2">Card Number</div>
+                <div className="text-xl font-mono mb-4">
+                  {cardInfo.cardNumber}
+                </div>
+                <div className="flex justify-between">
+                  <div>
+                    <div className="text-sm">Amount</div>
+                    <div className="font-mono">${cardInfo.amount}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm">Status</div>
+                    <div className="font-mono">{cardInfo.status}</div>
+                  </div>
+                </div>
+                <div className="mt-4 text-sm">
+                  Created: {new Date(cardInfo.createdAt).toLocaleString()}
+                </div>
+              </div>
+              <Button
+                className="w-full"
+                onClick={handleGenerateCard}
+                disabled={generatingCard}
+              >
+                {generatingCard ? "Generating..." : "Generate New Card"}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function DashboardPage() {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [groups, setGroups] = useState<any[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<any>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>("User");
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setUserId(localStorage.getItem("userId"));
+      setUserName(localStorage.getItem("username") || "User");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+    fetch("http://localhost:8080/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: `query UserGroups($userId: ID!) {
+          userGroups(userId: $userId) {
+            id
+            description
+            totalAmount
+            status
+            leader { id name username }
+            members { id amount status user { id name username } }
+          }
+        }`,
+        variables: { userId },
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setGroups(data.data.userGroups || []);
+      });
+  }, [userId]);
+
+  useEffect(() => {
+    if (!selectedGroupId) return;
+    fetch("http://localhost:8080/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: `query Group($id: ID!) {
+          group(id: $id) {
+            id
+            description
+            totalAmount
+            status
+            leader { id name username }
+            members { id amount status user { id name username } }
+          }
+        }`,
+        variables: { id: selectedGroupId },
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => setSelectedGroup(data.data.group));
+  }, [selectedGroupId]);
+
+  // 侧栏内容（移除账户信息）
+  const DrawerContent = () => {
+    const handleCopyLink = (groupId: string) => {
+      const link = `${window.location.origin}/dashboard/join?groupId=${groupId}`;
+      navigator.clipboard.writeText(link);
+      toast.success("Invite link copied to clipboard");
+    };
+
+    return (
+      <div className="flex flex-col h-full w-72 bg-white shadow-lg">
+        <div className="flex items-center gap-2 p-4 border-b">
+          <SearchIcon className="w-5 h-5 text-gray-400" />
+          <input
+            className="flex-1 bg-transparent outline-none text-base"
+            placeholder="Search groups..."
+          />
+        </div>
+        <div className="p-4 flex flex-col gap-2 border-b">
+          <Button
+            className="w-full flex items-center gap-2 justify-center"
+            onClick={() => {
+              setDrawerOpen(false);
+              setTimeout(
+                () => (window.location.href = "/dashboard/create-group"),
+                200
+              );
+            }}
+          >
+            <PlusIcon className="w-5 h-5" /> Create Group
+          </Button>
+          <Button
+            className="w-full flex items-center gap-2 justify-center"
+            variant="outline"
+            onClick={() => {
+              setDrawerOpen(false);
+              setTimeout(() => (window.location.href = "/dashboard/join"), 200);
+            }}
+          >
+            <LinkIcon className="w-5 h-5" /> Join by Link
+          </Button>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {groups.map((group) => (
+            <div key={group.id}>
+              <GroupListItem
+                group={group}
+                selected={group.id === selectedGroupId}
+                onClick={() => {
+                  setSelectedGroupId(group.id);
+                  setDrawerOpen(false);
+                }}
+              />
+              {group.leader?.id === userId && (
+                <div className="px-4 py-2 border-b bg-gray-50">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full flex items-center gap-2 justify-center text-gray-600"
+                    onClick={() => handleCopyLink(group.id)}
+                  >
+                    <CopyIcon className="w-4 h-4" />
+                    Copy Invite Link
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // 右上角头像菜单
+  const handleLogout = () => {
+    localStorage.removeItem("userId");
+    localStorage.removeItem("token");
+    localStorage.removeItem("username");
+    window.location.href = "/login";
+  };
+
+  return (
+    <div className="flex flex-col h-screen bg-gray-50">
+      {/* 顶部导航栏 */}
+      <header className="h-14 w-full flex items-center justify-center border-b bg-white relative">
+        <button
+          className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded hover:bg-gray-100"
+          onClick={() => setDrawerOpen(true)}
+        >
+          <MenuIcon className="w-6 h-6" />
+        </button>
+        <span className="text-2xl font-bold text-primary-600">PayTool</span>
+        {/* 右上角头像 */}
+        <div className="absolute right-4 top-1/2 -translate-y-1/2">
+          <button
+            className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-white text-lg focus:outline-none"
+            onClick={() => setAvatarMenuOpen((v) => !v)}
+          >
+            <UserIcon className="w-6 h-6" />
+          </button>
+          {avatarMenuOpen && (
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50 border">
+              <div className="px-4 py-2 text-gray-700 font-semibold border-b">
+                {userName}
+              </div>
+              <button
+                className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100"
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
+            </div>
+          )}
+        </div>
+      </header>
+      {/* 侧栏抽屉 */}
+      {drawerOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/10"
+            onClick={() => setDrawerOpen(false)}
+          />
+          <div className="fixed inset-y-0 left-0 z-50">
+            <DrawerContent />
+          </div>
+        </>
+      )}
+      {/* 主内容区 */}
+      <main className="flex-1 overflow-y-auto flex justify-center pt-8 md:pt-12">
+        {!selectedGroupId ? (
+          <div className="bg-white rounded-2xl shadow-xl px-12 py-16 flex flex-col gap-10 items-center max-w-md w-full animate-fade-in">
+            <div className="text-center">
+              <h1 className="text-3xl font-extrabold text-primary-700 mb-2 tracking-tight">
+                Welcome to PayTool
+              </h1>
+              <p className="text-lg text-gray-500">
+                Start by creating or joining a group
+              </p>
+            </div>
+            <Button
+              size="lg"
+              className="w-64 h-16 text-xl flex items-center justify-center gap-4 rounded-full shadow-md transition-transform hover:scale-105 hover:shadow-lg bg-black text-white"
+              onClick={() => (window.location.href = "/dashboard/create-group")}
+            >
+              <PlusIcon className="w-9 h-9" /> Create Group
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="w-64 h-16 text-xl flex items-center justify-center gap-4 rounded-full border-2 border-primary-500 text-primary-700 bg-white transition-transform hover:scale-105 hover:bg-primary-50"
+              onClick={() => (window.location.href = "/dashboard/join")}
+            >
+              <LinkIcon className="w-9 h-9" /> Join by Link
+            </Button>
+          </div>
+        ) : (
+          <GroupDetail
+            group={selectedGroup}
+            userId={userId}
+            setGroup={setSelectedGroup}
+          />
+        )}
+      </main>
+    </div>
+  );
+}
+</file>
+
+<file path="frontend/src/app/login/page.tsx">
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import GoogleLoginButton from '@/components/GoogleLoginButton';
+
+export default function LoginPage() {
+  const [formData, setFormData] = useState({
+    username: '',
+    password: '',
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const router = useRouter();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+    try {
+      const res = await fetch('http://localhost:8080/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: `mutation Login($username: String!, $password: String!) {
+            login(username: $username, password: $password) {
+              token
+              user {
+                id
+                username
+                email
+                name
+              }
+            }
+          }`,
+          variables: {
+            username: formData.username,
+            password: formData.password,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (data.errors && data.errors.length > 0) {
+        setError(data.errors[0].message || 'Login failed');
+      } else {
+        // 保存 token 和 userId 和 username
+        localStorage.setItem('token', data.data.login.token);
+        localStorage.setItem('userId', data.data.login.user.id);
+        localStorage.setItem('username', data.data.login.user.username);
+        // 在登录成功后处理跳转
+        handleLoginSuccess();
+      }
+    } catch (err) {
+      setError('Login failed, please try again later');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 在登录成功后处理跳转
+  const handleLoginSuccess = () => {
+    const pendingUrl = localStorage.getItem("pendingJoinUrl");
+    if (pendingUrl) {
+      localStorage.removeItem("pendingJoinUrl");
+      router.replace(pendingUrl);
+    } else {
+      router.push("/dashboard");
+    }
+  };
+
+  return (
+    <div className="flex min-h-[calc(100vh-4rem)] flex-1 flex-col justify-center px-4 py-4 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-sm">
+        <h2 className="text-center text-2xl font-bold leading-9 tracking-tight text-gray-900 mb-4">
+          Sign in to your account
+        </h2>
+      </div>
+
+      <div className="sm:mx-auto sm:w-full sm:max-w-sm">
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          {error && (
+            <div className="rounded-lg bg-red-50 p-4 mb-2">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-base text-red-700">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          <div>
+            <label htmlFor="username" className="block text-base font-medium leading-6 text-gray-900">
+              Username
+            </label>
+            <div className="mt-1">
+              <Input
+                id="username"
+                name="username"
+                type="text"
+                required
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                placeholder="Enter your username"
+                className="text-base px-4 py-3"
+              />
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between">
+              <label htmlFor="password" className="block text-base font-medium leading-6 text-gray-900">
+                Password
+              </label>
+              <div className="text-base">
+                <Link href="/forgot-password" className="font-semibold text-primary-600 hover:text-primary-500">
+                  Forgot password?
+                </Link>
+              </div>
+            </div>
+            <div className="mt-1">
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                required
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                placeholder="Enter your password"
+                className="text-base px-4 py-3"
+              />
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            disabled={isLoading}
+            className="w-full rounded-lg text-base px-4 py-3 mt-2"
+          >
+            {isLoading ? (
+              <span className="flex items-center">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Signing in...
+              </span>
+            ) : (
+              'Sign In'
+            )}
+          </Button>
+        </form>
+
+        <div className="mt-6">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="bg-white px-2 text-gray-500">Or continue with</span>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <GoogleLoginButton />
+          </div>
+        </div>
+
+        <p className="mt-4 text-center text-base text-gray-500">
+          Don&apos;t have an account?{' '}
+          <Link href="/register" className="font-semibold leading-6 text-primary-600 hover:text-primary-500">
+            Register now
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="frontend/src/app/layout.tsx">
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import Providers from "@/components/Providers";
+// import Header from "@/components/layout/Header";
+
+const inter = Inter({ subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "PayTool - Group Payment Made Easy",
+  description: "A modern group payment management tool",
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en" className="h-full bg-gray-50">
+      <body className={`${inter.className} h-full`}>
+        <Providers>
+          <div className="min-h-full">
+            {/* <Header /> */}
+            <main className="h-full">
+              {children}
+            </main>
+          </div>
+        </Providers>
+      </body>
+    </html>
+  );
+}
+</file>
+
+<file path="frontend/src/components/GoogleLoginButton.tsx">
+'use client';
+
+import { GoogleLogin } from '@react-oauth/google';
+import { useRouter } from 'next/navigation';
+
+export default function GoogleLoginButton() {
+  const router = useRouter();
+
+  const handleSuccess = async (credentialResponse: any) => {
+    try {
+      const response = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          credential: credentialResponse.credential,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.avatar) {
+          localStorage.setItem("avatar", data.avatar);
+          window.dispatchEvent(new Event("avatar-updated"));
+        }
+        router.push('/dashboard');
+      } else {
+        console.error('Login failed');
+      }
+
+      console.log('credentialResponse:', credentialResponse);
+    } catch (error) {
+      console.error('Error during login:', error);
+    }
+  };
+
+  return (
+    <div className="flex justify-center">
+      <GoogleLogin
+        onSuccess={handleSuccess}
+        onError={() => {
+          console.log('Login Failed');
+        }}
+        useOneTap
+      />
+    </div>
+  );
+}
+</file>
+
+<file path="frontend/next.config.ts">
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'http://localhost:8080/api/:path*',
+      },
+    ];
+  },
+};
+
+export default nextConfig;
+</file>
+
+<file path="backend/src/main/java/com/paytool/config/SecurityConfig.java">
+package com.paytool.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import org.springframework.http.HttpMethod;
+
+import java.util.Arrays;
+import java.util.List;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(csrf -> csrf.disable())
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers(
+                    "/graphql",
+                    "/graphql/**",
+                    "/graphiql",
+                    "/graphiql/**",
+                    "/playground",
+                    "/playground/**",
+                    "/vendor/**",
+                    "/error",
+                    "/error/**",
+                    "/subscriptions",
+                    "/api/auth/google",
+                    "/login/oauth2/code/**",
+                    "/h2-console/**"
+                ).permitAll()
+                .requestMatchers(HttpMethod.GET, "/graphiql/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/graphql").permitAll()
+                .requestMatchers(HttpMethod.POST, "/graphql").permitAll()
+                .requestMatchers(HttpMethod.POST, "/graphql/**").permitAll()
+                .anyRequest().authenticated()
+            )
+            .oauth2Login(oauth2 -> oauth2
+                .authorizationEndpoint(authorization -> authorization
+                    .baseUri("/oauth2/authorize"))
+                .redirectionEndpoint(redirection -> redirection
+                    .baseUri("/login/oauth2/code/*"))
+            )
+            .headers(headers -> headers.frameOptions().disable()); // 允许 H2 控制台在 iframe 中显示
+        
+        return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        // configuration.setAllowedOriginPatterns(List.of("*")); 
+        configuration.setAllowedOrigins(List.of("http://localhost:3000", "ws://localhost:8080")); // 前端开发服务器
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(Arrays.asList(
+            "Authorization",
+            "Content-Type",
+            "X-Requested-With",
+            "Accept",
+            "Origin",
+            "Access-Control-Request-Method",
+            "Access-Control-Request-Headers"
+        ));
+        configuration.setExposedHeaders(Arrays.asList(
+            "Access-Control-Allow-Origin",
+            "Access-Control-Allow-Credentials"
+        ));
+        configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/model/Group.java">
+package com.paytool.model;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+@Data
+@Entity
+@Table(name = "payment_groups")
+public class Group {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "leader_id", nullable = false)
+    private User leader;
+
+    @Column(nullable = false)
+    private Double totalAmount;
+
+    @Column
+    private String description;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private GroupStatus status = GroupStatus.PENDING;
+
+    @Column(unique = true)
+    private String qrCode;
+
+    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<GroupMember> members = new ArrayList<>();
+
+
+    @CreationTimestamp
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
+    
+    @Column(name = "total_people", nullable = false)
+    private Integer totalPeople;
+
+    // getter 和 setter
+    public Integer getTotalPeople() {
+        return totalPeople;
+    }
+
+    public void setTotalPeople(Integer totalPeople) {
+        this.totalPeople = totalPeople;
+    }
+
+    @Override
+    public String toString() {
+        return "Group{id=" + id + ", description=" + description + ", status=" + status + ", totalAmount=" + totalAmount + ", totalPeople=" + totalPeople + "}";
+    }
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/model/MemberStatus.java">
+package com.paytool.model;
+
+public enum MemberStatus {
+    PENDING,
+    AGREED,
+    DISAGREED
+}
+</file>
+
+<file path="backend/src/main/resources/graphql/schema.graphqls">
+type Query {
+    hello: String
+    user(id: ID!): User
+    users: [User!]!
+    group(id: ID!): Group
+    groups: [Group!]!
+    userGroups(userId: ID!): [Group!]!
+    groupMembers(groupId: ID!): [GroupMember!]!
+    transaction(id: ID!): Transaction
+    transactions: [Transaction!]!
+    userTransactions(userId: ID!): [Transaction!]!
+}
+
+type Mutation {
+    testMutation: String
+    createUser(input: CreateUserInput!): User!
+    updateUser(id: ID!, input: UpdateUserInput!): User!
+    createGroup(input: CreateGroupInput!): Group!
+    joinGroup(groupId: ID!, userId: ID!): GroupMember!
+    updateMemberStatus(groupId: ID!, userId: ID!, status: MemberStatus!): GroupMember!
+    generatePaymentCard(groupId: ID!): PaymentCard!
+    createTransaction(input: CreateTransactionInput!): Transaction!
+    updateTransactionStatus(id: ID!, status: TransactionStatus!): Transaction!
+    login(username: String!, password: String!): AuthPayload!
+}
+
+type User {
+    id: ID!
+    username: String!
+    email: String!
+    name: String!
+    createdAt: String!
+    updatedAt: String!
+}
+
+type Group {
+    id: ID!
+    leader: User!
+    totalAmount: Float!
+    totalPeople: Int!
+    description: String
+    status: GroupStatus!
+    qrCode: String
+    createdAt: String!
+    updatedAt: String!
+    members: [GroupMember!]!
+}
+
+type GroupMember {
+    id: ID!
+    group: Group!
+    user: User!
+    amount: Float!
+    status: MemberStatus!
+    joinedAt: String!
+}
+
+type PaymentCard {
+    id: ID!
+    group: Group!
+    cardNumber: String!
+    amount: Float!
+    status: PaymentCardStatus!
+    createdAt: String!
+}
+
+type Transaction {
+    id: ID!
+    sender: User!
+    receiver: User!
+    amount: Float!
+    status: TransactionStatus!
+    description: String
+    createdAt: String!
+    updatedAt: String!
+}
+
+type AuthPayload {
+    token: String!
+    user: User!
+}
+
+enum TransactionStatus {
+    PENDING
+    COMPLETED
+    FAILED
+    CANCELLED
+}
+
+enum GroupStatus {
+    PENDING
+    ACTIVE
+    COMPLETED
+    CANCELLED
+}
+
+enum MemberStatus {
+    PENDING
+    AGREED
+    DISAGREED
+}
+
+enum PaymentCardStatus {
+    PENDING
+    ACTIVE
+    USED
+    EXPIRED
+}
+
+input CreateUserInput {
+    username: String!
+    password: String!
+    email: String!
+    name: String!
+}
+
+input UpdateUserInput {
+    email: String
+    name: String
+    password: String
+}
+
+input CreateGroupInput {
+    leaderId: ID!
+    totalAmount: Float!
+    totalPeople: Int!
+    description: String
+}
+
+input CreateTransactionInput {
+    senderId: ID!
+    receiverId: ID!
+    amount: Float!
+    description: String
+}
+
+type Subscription {
+    groupStatusChanged(groupId: ID!): Group!
+    memberStatusChanged(groupId: ID!): GroupMember!
+}
+</file>
+
+<file path="frontend/.gitignore">
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+/build
+/dist
+
+# misc
+.DS_Store
+*.pem
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env*.local
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+</file>
+
+<file path="frontend/package.json">
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@auth/core": "^0.39.1",
+    "@headlessui/react": "^2.2.4",
+    "@heroicons/react": "^2.2.0",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@react-oauth/google": "^0.12.2",
+    "@tailwindcss/forms": "^0.5.10",
+    "axios": "^1.9.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "graphql": "^16.11.0",
+    "graphql-request": "^7.1.2",
+    "graphql-ws": "^6.0.5",
+    "lucide-react": "^0.511.0",
+    "next": "15.3.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "sonner": "^2.0.3",
+    "tailwind-merge": "^3.3.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.3.2",
+    "tailwindcss": "^4",
+    "tw-animate-css": "^1.3.0",
+    "typescript": "^5"
+  }
+}
+</file>
+
+<file path="backend/src/main/java/com/paytool/graphql/MutationResolver.java">
+package com.paytool.graphql;
+
+import com.paytool.dto.CreateGroupInput;
+import com.paytool.dto.CreateTransactionInput;
+import com.paytool.dto.CreateUserInput;
+import com.paytool.dto.UpdateUserInput;
+import com.paytool.model.*;
+import com.paytool.repository.GroupMemberRepository;
+import com.paytool.repository.GroupRepository;
+import com.paytool.repository.PaymentCardRepository;
+import com.paytool.repository.TransactionRepository;
+import com.paytool.repository.UserRepository;
+import com.paytool.service.GroupService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.graphql.data.method.annotation.Argument;
+import org.springframework.graphql.data.method.annotation.MutationMapping;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.socket.config.annotation.EnableWebSocket;
+import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
+import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
+import org.springframework.web.socket.handler.TextWebSocketHandler;
+import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.WebSocketMessage;
+import com.paytool.service.GroupPublisher;
+
+import java.util.List;
+import java.util.UUID;
+
+@Controller
+@RequiredArgsConstructor
+public class MutationResolver {
+    private final UserRepository userRepository;
+    private final GroupRepository groupRepository;
+    private final GroupMemberRepository groupMemberRepository;
+    private final PaymentCardRepository paymentCardRepository;
+    private final TransactionRepository transactionRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final GroupService groupService; // 新增的 GroupService
+    private final SubscriptionResolver subscriptionResolver;
+
+    @MutationMapping
+    public String testMutation() {
+        return "Mutation test successful!";
+    }
+
+    @MutationMapping
+    public User createUser(@Argument("input") CreateUserInput input) {
+        if (userRepository.existsByUsername(input.getUsername()) || 
+            userRepository.existsByEmail(input.getEmail())) {
+            throw new RuntimeException("Username or email already exists");
+        }
+
+        User user = new User();
+        user.setUsername(input.getUsername());
+        user.setPassword(passwordEncoder.encode(input.getPassword()));
+        user.setEmail(input.getEmail());
+        user.setName(input.getName());
+
+        return userRepository.save(user);
+    }
+
+    @MutationMapping
+    public User updateUser(@Argument("id") String id, @Argument("input") UpdateUserInput input) {
+        User user = userRepository.findById(Long.parseLong(id))
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (input.getEmail() != null) {
+            user.setEmail(input.getEmail());
+        }
+        if (input.getName() != null) {
+            user.setName(input.getName());
+        }
+        if (input.getPassword() != null) {
+            user.setPassword(passwordEncoder.encode(input.getPassword()));
+        }
+
+        return userRepository.save(user);
+    }
+
+    @MutationMapping
+    public Group createGroup(@Argument("input") CreateGroupInput input) {
+        try {
+            System.out.println("Creating group with input: " + input);
+
+            if (input.getLeaderId() == null) {
+                throw new RuntimeException("Leader ID cannot be null");
+            }
+
+            User leader = userRepository.findById(input.getLeaderId())
+                .orElseThrow(() -> new RuntimeException("Leader not found with ID: " + input.getLeaderId()));
+            System.out.println("Found leader: " + leader.getUsername());
+
+            Group group = new Group();
+            group.setLeader(leader);
+            group.setTotalAmount(input.getTotalAmount());
+            group.setDescription(input.getDescription());
+            group.setStatus(GroupStatus.PENDING);
+            group.setQrCode(UUID.randomUUID().toString());
+            group.setTotalPeople(input.getTotalPeople());
+
+            Group savedGroup = groupRepository.save(group);
+            System.out.println("Created group with id: " + savedGroup.getId());
+
+            GroupMember leaderMember = new GroupMember();
+            leaderMember.setGroup(savedGroup);
+            leaderMember.setUser(leader);
+            leaderMember.setAmount(input.getTotalAmount());
+            leaderMember.setStatus(MemberStatus.AGREED);
+
+            GroupMember savedMember = groupMemberRepository.save(leaderMember);
+            System.out.println("Created leader member with id: " + savedMember.getId());
+
+            return savedGroup;
+        } catch (Exception e) {
+            System.err.println("Error in createGroup: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to create group: " + e.getMessage(), e);
+        }
+    }
+
+    @MutationMapping
+    public GroupMember joinGroup(@Argument("groupId") Long groupId, @Argument("userId") Long userId) {
+        return groupService.joinGroup(groupId, userId);
+    }
+
+    @MutationMapping
+    public GroupMember updateMemberStatus(
+            @Argument("groupId") Long groupId,
+            @Argument("userId") Long userId,
+            @Argument("status") MemberStatus status) {
+        // 使用 GroupService 中的方法，确保推送事件逻辑
+        return groupService.updateMemberStatus(groupId, userId, status);
+    }
+
+    @MutationMapping
+    public PaymentCard generatePaymentCard(@Argument("groupId") Long groupId) {
+        Group group = groupRepository.findById(groupId)
+            .orElseThrow(() -> new RuntimeException("Group not found"));
+
+        List<GroupMember> members = groupMemberRepository.findByGroup(group);
+        boolean allAgreed = members.stream()
+            .allMatch(member -> member.getStatus() == MemberStatus.AGREED);
+
+        if (!allAgreed) {
+            throw new RuntimeException("Not all members have agreed to the payment");
+        }
+
+        PaymentCard card = new PaymentCard();
+        card.setGroup(group);
+        card.setCardNumber(generateCardNumber());
+        card.setAmount(group.getTotalAmount());
+        card.setStatus(PaymentCardStatus.ACTIVE);
+
+        return paymentCardRepository.save(card);
+    }
+
+    @MutationMapping
+    public Transaction createTransaction(@Argument("input") CreateTransactionInput input) {
+        User sender = userRepository.findById(Long.parseLong(input.getSenderId().toString()))
+            .orElseThrow(() -> new RuntimeException("Sender not found"));
+        User receiver = userRepository.findById(Long.parseLong(input.getReceiverId().toString()))
+            .orElseThrow(() -> new RuntimeException("Receiver not found"));
+
+        Transaction transaction = new Transaction();
+        transaction.setSender(sender);
+        transaction.setReceiver(receiver);
+        transaction.setAmount(input.getAmount());
+        transaction.setDescription(input.getDescription());
+        transaction.setStatus(TransactionStatus.PENDING);
+
+        return transactionRepository.save(transaction);
+    }
+
+    @MutationMapping
+    public Transaction updateTransactionStatus(
+            @Argument("id") String id,
+            @Argument("status") TransactionStatus status) {
+        Transaction transaction = transactionRepository.findById(Long.parseLong(id))
+            .orElseThrow(() -> new RuntimeException("Transaction not found"));
+
+        transaction.setStatus(status);
+        return transactionRepository.save(transaction);
+    }
+
+    @MutationMapping
+    public AuthPayload login(@Argument String username, @Argument String password) {
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new RuntimeException("Invalid password");
+        }
+        String token = "mock-jwt-token-" + user.getId();
+        return new AuthPayload(token, user);
+    }
+
+    private String generateCardNumber() {
+        return String.format("%016d", System.nanoTime() % 10000000000000000L);
+    }
+}
+</file>
+
+<file path="backend/src/main/resources/application.yml">
+server:
+  port: 8080
+  servlet:
+    context-path: /
+  error:
+    whitelabel:
+      enabled: false
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: never
+    include-exception: false
+    path: /error
+
+spring:
+  datasource:
+    url: jdbc:mysql://paytool.cp0scs4c4gvc.us-east-2.rds.amazonaws.com:3306/paytool?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true
+    username: admin
+    password: 1057555034
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        jdbc:
+          time_zone: UTC
+  security:
+    user:
+      name: admin
+      password: secret
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${google.client.id}
+            scope:
+              - email
+              - profile
+
+  mvc:
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      add-mappings: false
+  thymeleaf:
+    enabled: false
+  devtools:
+    restart:
+      enabled: true
+      additional-paths: src/main/java
+      exclude: static/**,public/**
+  graphql:
+    websocket:
+      path: /graphql
+      allowed-origins: "ws://localhost:3000"
+      connection-init-timeout: 5000
+      init-timeout: 5000
+      subscription:
+        keep-alive:
+          enabled: true
+          interval: 30s
+    graphiql:
+      enabled: true
+      path: /graphiql
+    schema:
+      printer:
+        enabled: true
+    path: /graphql
+    cors:
+      allowed-origins: "http://localhost:3000"
+      allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+      allowed-headers: "*"
+      allow-credentials: true
+      max-age: 3600
+  subscription:
+    enabled: true
+    transport: websocket
+  websocket:
+    max-text-message-size: 128KB
+    max-binary-message-size: 128KB
+    allowed-origins: "http://localhost:3000"
+    path: /graphql
+
+graphql:
+  servlet:
+    mapping: /graphql
+    enabled: true
+    corsEnabled: true
+  path: /graphql
+  graphiql:
+    enabled: true
+    path: /graphiql
+    props:
+      resources:
+        query: /graphql/query.graphql
+        defaultQuery: |
+          query {
+            hello
+          }
+  playground:
+    enabled: true
+    path: /playground
+  schema:
+    printer:
+      enabled: true
+  tools:
+    schema-location-pattern: "**/*.graphqls"
+
+jwt:
+  secret: "this-is-a-very-long-random-secret-key-must-be-at-least-64-characters-long-1234567890"
+  expiration: 86400000 # 24 hours in milliseconds
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+    com.paytool: DEBUG
+
+google:
+  client:
+    id: 211473285848-tptiv712dk23v369emgamq2iocg3e0he.apps.googleusercontent.com
+</file>
+
+<file path="backend/pom.xml">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.2.3</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.paytool</groupId>
+    <artifactId>paytool-backend</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>paytool-backend</name>
+    <description>Backend for PayTool application</description>
+
+    <properties>
+        <java.version>17</java.version>
+    </properties>
+
+    <repositories>
+        <repository>
+            <id>google-maven-repository</id>
+            <url>https://maven.google.com</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <!-- Spring Boot Starters -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
+        <!-- Spring GraphQL -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-graphql</artifactId>
+        </dependency>
+
+        <!-- Database -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- JWT -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>0.11.5</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>0.11.5</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>0.11.5</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- DevTools -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- WebSocket -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+        
+        <!-- GraphQL Subscription -->
+        <dependency>
+            <groupId>com.graphql-java-kickstart</groupId>
+            <artifactId>graphql-java-tools</artifactId>
+            <version>12.0.0</version>
+        </dependency>
+        
+        <!-- For reactive support -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-reactor-netty</artifactId>
+        </dependency>
+
+        <!-- Google OAuth -->
+        <dependency>
+            <groupId>com.google.api-client</groupId>
+            <artifactId>google-api-client</artifactId>
+            <version>1.34.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.api-client</groupId>
+            <artifactId>google-api-client-gson</artifactId>
+            <version>1.34.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.oauth-client</groupId>
+            <artifactId>google-oauth-client</artifactId>
+            <version>1.34.1</version>
+        </dependency>
+
+        <!-- Spring Security OAuth2 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-client</artifactId>
+        </dependency>
+
+        <!-- Jakarta Annotation -->
+        <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
+            <version>2.1.1</version>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
+</file>
+
+<file path="README.md">
+[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/L1CTotQ-)
+[![Open in Codespaces](https://classroom.github.com/assets/launch-codespace-2972f46106e565e64193e422d61a12cf1da4916b45550586e14ef0a7c637dd04.svg)](https://classroom.github.com/open-in-codespaces?assignment_repo_id=19449155)
+
+
+## Proposal Link: https://docs.google.com/document/d/14phZYPUm03hRg1Ig7o2XtB0V4cIX-uFeu4-iDN9K6io/edit?usp=sharing
+
+## Figma Link: https://www.figma.com/proto/dV3Pb7LVvBbcEYOkZgXBub/303-Final-Project?node-id=24-8463&p=f&t=TXmc8SJZMbr3QYA6-1&scaling=min-zoom&content-scaling=fixed&page-id=0%3A1&starting-point-node-id=47%3A218
+
+# PayTool - Group Payment Management Tool
+
+PayTool is a modern group payment management tool that helps users easily manage group bills and payments.
+
+## Tech Stack
+
+### Frontend
+- Next.js 14
+- TypeScript
+- Tailwind CSS
+- GraphQL Client
+- UI Components:
+  - shadcn/ui (based on Radix UI)
+  - Lucide Icons
+  - Tailwind CSS
+
+### Backend
+- Spring Boot
+- GraphQL
+- MySQL
+- Maven
+
+## Requirements
+
+- Node.js 18.0.0 or higher
+- Java 17 or higher
+- MySQL 8.0 or higher
+- Maven 3.6 or higher
+
+## Setup Instructions
+
+### 1. Clone the Project
+```bash
+git clone [repository-url]
+cd final-project-paytool
+```
+
+### 2. Backend Setup
+
+1. Configure Database
+   - Create MySQL database
+   - Update database configuration in `backend/src/main/resources/application.properties`:
+     ```properties
+     spring.datasource.url=jdbc:mysql://localhost:3306/paytool
+     spring.datasource.username=your_username
+     spring.datasource.password=your_password
+     ```
+
+2. Start Backend Service
+   ```bash
+   cd backend
+   mvn clean install
+   mvn spring-boot:run
+   ```
+   Backend service will run at http://localhost:8080
+
+### 3. Frontend Setup
+
+1. Install Dependencies
+   ```bash
+   cd frontend
+   npm install
+   ```
+
+2. Copy environment variables example file
+   ```bash
+   cp .env.example .env.local
+   ```
+
+3. Start Development Server
+   ```bash
+   npm run dev
+   ```
+   Frontend service will run at http://localhost:3000
+
+## Usage Guide
+
+1. Visit http://localhost:3000 to open the application
+2. Register an account for first-time users
+3. After logging in, you can:
+   - Create new payment groups
+   - Join groups via QR code
+   - Manage group bills
+   - Track payment status
+
+## Development Guide
+
+- Frontend code is located in `frontend/src` directory
+- Backend code is located in `backend/src/main/java` directory
+- GraphQL schema is located in `backend/src/main/resources/schema.graphqls`
+
+## Troubleshooting
+
+1. If you encounter database connection issues, check:
+   - MySQL service is running
+   - Database configuration is correct
+   - Database user has sufficient permissions
+
+2. If frontend cannot connect to backend, check:
+   - Backend service is running
+   - Frontend environment variables are configured correctly
+   - CORS configuration is correct
+
+## Contributing
+
+1. Fork the project
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+MIT License
+</file>
+
+</files>

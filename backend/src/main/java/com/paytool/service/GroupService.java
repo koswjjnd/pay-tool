@@ -56,14 +56,13 @@ public class GroupService {
             throw new RuntimeException("No available slots in the group");
         }
 
-        // 新建成员
+        double splitAmount = group.getTotalAmount() / group.getTotalPeople();
         GroupMember newMember = new GroupMember();
         newMember.setGroup(group);
         newMember.setUser(user);
         newMember.setStatus(MemberStatus.PENDING);
-        newMember.setAmount(0.0); // 可根据业务逻辑分配金额
+        newMember.setAmount(splitAmount);
         groupMemberRepository.save(newMember);
-
         groupPublisher.publishMemberStatus(groupId.toString(), newMember);
         return newMember;
     }
