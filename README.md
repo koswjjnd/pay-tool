@@ -57,6 +57,7 @@ cd final-project-paytool
 2. Start Backend Service
    ```bash
    cd backend
+   sdk env
    mvn clean install
    mvn spring-boot:run
    ```
