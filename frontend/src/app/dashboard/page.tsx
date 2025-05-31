@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   QrCodeIcon,
@@ -9,6 +9,7 @@ import {
   SearchIcon,
   LinkIcon,
   CopyIcon,
+  XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMemberSubscription } from "@/hooks/useSubscription";
@@ -367,6 +368,10 @@ export default function DashboardPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("User");
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [filteredGroups, setFilteredGroups] = useState<any[]>([]);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -401,6 +406,19 @@ export default function DashboardPage() {
   }, [userId]);
 
   useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredGroups(groups);
+    } else {
+      const query = searchQuery.toLowerCase().trim();
+      const filtered = groups.filter((group) => {
+        const description = group.description || `Group #${group.id}`;
+        return description.toLowerCase().includes(query);
+      });
+      setFilteredGroups(filtered);
+    }
+  }, [searchQuery, groups]);
+
+  useEffect(() => {
     if (!selectedGroupId) return;
     fetch("http://localhost:8080/graphql", {
       method: "POST",
@@ -423,8 +441,19 @@ export default function DashboardPage() {
       .then((data) => setSelectedGroup(data.data.group));
   }, [selectedGroupId]);
 
-  // 侧栏内容（移除账户信息）
-  const DrawerContent = () => {
+  const clearSearch = useCallback(() => {
+    setSearchQuery("");
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, []);
+
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  }, []);
+
+  // 侧栏内容（使用useCallback优化）
+  const DrawerContent = useCallback(() => {
     const handleCopyLink = (groupId: string) => {
       const link = `${window.location.origin}/dashboard/join?groupId=${groupId}`;
       navigator.clipboard.writeText(link);
@@ -436,10 +465,24 @@ export default function DashboardPage() {
         <div className="flex items-center gap-2 p-4 border-b">
           <SearchIcon className="w-5 h-5 text-gray-400" />
           <input
+            ref={searchInputRef}
             className="flex-1 bg-transparent outline-none text-base"
-            placeholder="Search groups..."
+            placeholder="Search by group name..."
+            value={searchQuery}
+            onChange={handleSearchChange}
+            autoComplete="off"
           />
+          {searchQuery && (
+            <button
+              onClick={clearSearch}
+              className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              type="button"
+            >
+              <XIcon className="w-4 h-4 text-gray-400" />
+            </button>
+          )}
         </div>
+        
         <div className="p-4 flex flex-col gap-2 border-b">
           <Button
             className="w-full flex items-center gap-2 justify-center"
@@ -464,36 +507,49 @@ export default function DashboardPage() {
             <LinkIcon className="w-5 h-5" /> Join by Link
           </Button>
         </div>
+        
         <div className="flex-1 overflow-y-auto">
-          {groups.map((group) => (
-            <div key={group.id}>
-              <GroupListItem
-                group={group}
-                selected={group.id === selectedGroupId}
-                onClick={() => {
-                  setSelectedGroupId(group.id);
-                  setDrawerOpen(false);
-                }}
-              />
-              {group.leader?.id === userId && (
-                <div className="px-4 py-2 border-b bg-gray-50">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full flex items-center gap-2 justify-center text-gray-600"
-                    onClick={() => handleCopyLink(group.id)}
-                  >
-                    <CopyIcon className="w-4 h-4" />
-                    Copy Invite Link
-                  </Button>
-                </div>
-              )}
+          {searchQuery && (
+            <div className="px-4 py-2 text-sm text-gray-500 border-b bg-gray-50">
+              {filteredGroups.length} result(s) for "{searchQuery}"
             </div>
-          ))}
+          )}
+          
+          {filteredGroups.length > 0 ? (
+            filteredGroups.map((group) => (
+              <div key={group.id}>
+                <GroupListItem
+                  group={group}
+                  selected={group.id === selectedGroupId}
+                  onClick={() => {
+                    setSelectedGroupId(group.id);
+                    setDrawerOpen(false);
+                  }}
+                />
+                {group.leader?.id === userId && (
+                  <div className="px-4 py-2 border-b bg-gray-50">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full flex items-center gap-2 justify-center text-gray-600"
+                      onClick={() => handleCopyLink(group.id)}
+                    >
+                      <CopyIcon className="w-4 h-4" />
+                      Copy Invite Link
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="px-4 py-8 text-center text-gray-500">
+              {searchQuery ? "No groups found" : "No groups yet"}
+            </div>
+          )}
         </div>
       </div>
     );
-  };
+  }, [searchQuery, filteredGroups, selectedGroupId, userId, handleSearchChange, clearSearch]);
 
   // 右上角头像菜单
   const handleLogout = () => {
