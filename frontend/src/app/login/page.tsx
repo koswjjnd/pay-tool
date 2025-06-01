@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import GoogleLoginButton from '@/components/GoogleLoginButton';
@@ -17,6 +17,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const searchParams = useSearchParams();
   const setUser = useUserStore((state) => state.setUser);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -69,6 +70,14 @@ export default function LoginPage() {
 
   // 在登录成功后处理跳转
   const handleLoginSuccess = () => {
+    // 首先检查 URL 参数中的 redirect
+    const redirect = searchParams.get('redirect');
+    if (redirect) {
+      router.push(redirect);
+      return;
+    }
+    
+    // 然后检查 sessionStorage 中的 pendingJoinUrl（兼容旧的 join 页面逻辑）
     const pendingUrl = sessionStorage.getItem("pendingJoinUrl");
     if (pendingUrl) {
       sessionStorage.removeItem("pendingJoinUrl");
@@ -190,4 +199,4 @@ export default function LoginPage() {
       </div>
     </GoogleOAuthProvider>
   );
-} 
+}
