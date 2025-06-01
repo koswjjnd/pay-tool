@@ -18,6 +18,7 @@ type Mutation {
     createGroup(input: CreateGroupInput!): Group!
     joinGroup(groupId: ID!, userId: ID!): GroupMember!
     updateMemberStatus(groupId: ID!, userId: ID!, status: MemberStatus!): GroupMember!
+    updateGroupStatus(groupId: ID!, status: GroupStatus!): Group!
     generatePaymentCard(groupId: ID!): PaymentCard!
     createTransaction(input: CreateTransactionInput!): Transaction!
     updateTransactionStatus(id: ID!, status: TransactionStatus!): Transaction!
