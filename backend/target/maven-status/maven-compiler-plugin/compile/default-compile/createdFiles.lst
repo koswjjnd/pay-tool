@@ -5,6 +5,7 @@ com/paytool/model/Transaction.class
 com/paytool/PayToolApplication.class
 com/paytool/repository/GroupRepository.class
 com/paytool/controller/GlobalExceptionHandler.class
+com/paytool/exception/GraphQLExceptionHandler.class
 com/paytool/dto/ErrorResponse.class
 com/paytool/config/GraphQLConfig.class
 com/paytool/dto/CreateTransactionInput.class
@@ -24,6 +25,7 @@ com/paytool/repository/GroupMemberRepository.class
 com/paytool/controller/AuthController.class
 com/paytool/service/GroupPublisher.class
 com/paytool/model/TransactionStatus.class
+com/paytool/exception/CustomException.class
 com/paytool/repository/TransactionRepository.class
 com/paytool/security/JwtTokenProvider.class
 com/paytool/dto/GoogleLoginRequest.class

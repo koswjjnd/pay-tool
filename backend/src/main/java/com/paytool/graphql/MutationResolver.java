@@ -23,6 +23,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.WebSocketMessage;
 import com.paytool.service.GroupPublisher;
+import com.paytool.exception.CustomException;
 
 import java.util.List;
 import java.util.UUID;
@@ -48,7 +49,7 @@ public class MutationResolver {
     public User createUser(@Argument("input") CreateUserInput input) {
         if (userRepository.existsByUsername(input.getUsername()) || 
             userRepository.existsByEmail(input.getEmail())) {
-            throw new RuntimeException("Username or email already exists");
+                throw new CustomException("Username or email already exists");
         }
 
         User user = new User();
@@ -189,7 +190,7 @@ public class MutationResolver {
         User user = userRepository.findByUsername(username)
             .orElseThrow(() -> new RuntimeException("User not found"));
         if (!passwordEncoder.matches(password, user.getPassword())) {
-            throw new RuntimeException("Invalid password");
+            throw new CustomException("Invalid password");
         }
         String token = "mock-jwt-token-" + user.getId();
         return new AuthPayload(token, user);

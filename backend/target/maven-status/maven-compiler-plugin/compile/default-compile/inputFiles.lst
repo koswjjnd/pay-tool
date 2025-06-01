@@ -1,6 +1,7 @@
 /Users/jin/Desktop/final-project-paytool/backend/src/main/java/com/paytool/model/TransactionStatus.java
 /Users/jin/Desktop/final-project-paytool/backend/src/main/java/com/paytool/dto/CreateTransactionInput.java
 /Users/jin/Desktop/final-project-paytool/backend/src/main/java/com/paytool/dto/CreateUserInput.java
+/Users/jin/Desktop/final-project-paytool/backend/src/main/java/com/paytool/exception/CustomException.java
 /Users/jin/Desktop/final-project-paytool/backend/src/main/java/com/paytool/repository/UserRepository.java
 /Users/jin/Desktop/final-project-paytool/backend/src/main/java/com/paytool/config/GraphQLConfig.java
 /Users/jin/Desktop/final-project-paytool/backend/src/main/java/com/paytool/model/AuthPayload.java
@@ -23,6 +24,7 @@
 /Users/jin/Desktop/final-project-paytool/backend/src/main/java/com/paytool/controller/GlobalExceptionHandler.java
 /Users/jin/Desktop/final-project-paytool/backend/src/main/java/com/paytool/service/GroupService.java
 /Users/jin/Desktop/final-project-paytool/backend/src/main/java/com/paytool/model/PaymentCardStatus.java
+/Users/jin/Desktop/final-project-paytool/backend/src/main/java/com/paytool/exception/GraphQLExceptionHandler.java
 /Users/jin/Desktop/final-project-paytool/backend/src/main/java/com/paytool/dto/ErrorResponse.java
 /Users/jin/Desktop/final-project-paytool/backend/src/main/java/com/paytool/dto/UpdateUserInput.java
 /Users/jin/Desktop/final-project-paytool/backend/src/main/java/com/paytool/graphql/SubscriptionResolver.java
