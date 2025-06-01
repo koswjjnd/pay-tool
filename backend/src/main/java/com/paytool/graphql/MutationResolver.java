@@ -136,6 +136,13 @@ public class MutationResolver {
     }
 
     @MutationMapping
+    public Group updateGroupStatus(
+            @Argument("groupId") Long groupId,
+            @Argument("status") GroupStatus status) {
+        return groupService.updateGroupStatus(groupId, status);
+    }
+
+    @MutationMapping
     public PaymentCard generatePaymentCard(@Argument("groupId") Long groupId) {
         Group group = groupRepository.findById(groupId)
             .orElseThrow(() -> new RuntimeException("Group not found"));
@@ -153,6 +160,13 @@ public class MutationResolver {
         card.setCardNumber(generateCardNumber());
         card.setAmount(group.getTotalAmount());
         card.setStatus(PaymentCardStatus.ACTIVE);
+
+        // 生成卡后更新群组状态为已完成
+        group.setStatus(GroupStatus.COMPLETED);
+        Group updatedGroup = groupRepository.save(group);
+
+        // 发布群组状态更新事件
+        subscriptionResolver.publishGroupUpdate(groupId.toString(), updatedGroup);
 
         return paymentCardRepository.save(card);
     }

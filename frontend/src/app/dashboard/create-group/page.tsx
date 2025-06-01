@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { useUserStore } from '@/store/userStore';
 
 export default function CreateGroupPage() {
   const router = useRouter();
+  const { userId } = useUserStore();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     description: "",
@@ -28,11 +30,6 @@ export default function CreateGroupPage() {
 
     setLoading(true);
     try {
-      const userId = localStorage.getItem("userId");
-      if (!userId) {
-        throw new Error("User not logged in");
-      }
-
       const response = await fetch("http://localhost:8080/graphql", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

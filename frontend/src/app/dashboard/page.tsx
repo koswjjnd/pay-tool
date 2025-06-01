@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   QrCodeIcon,
@@ -9,11 +9,13 @@ import {
   SearchIcon,
   LinkIcon,
   CopyIcon,
+  XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useMemberSubscription } from "@/hooks/useSubscription";
+import { useMemberSubscription, useGroupSubscription } from "@/hooks/useSubscription";
+import { useUserStore } from '@/store/userStore';
+import { useRouter, useSearchParams } from "next/navigation";
 
-// 群组列表项组件
 function GroupListItem({ group, selected, onClick }: any) {
   return (
     <div
@@ -39,17 +41,18 @@ function GroupDetail({ group, userId, setGroup }: any) {
   const [cardInfo, setCardInfo] = useState<any>(null);
   const [wsUpdateReceived, setWsUpdateReceived] = useState(false);
 
-  // WebSocket subscription for member status changes
+  // WebSocket subscriptions for both member and group status changes
   const { member: liveMember } = useMemberSubscription(group?.id);
+  const { group: liveGroup } = useGroupSubscription(group?.id);
 
   useEffect(() => {
     setMembers(group?.members || []);
   }, [group]);
 
-  // Handle real-time updates via WebSocket
+  // Handle real-time updates via WebSocket for member status
   useEffect(() => {
     if (liveMember) {
-      console.log("🔄 WebSocket update received:", liveMember);
+      console.log("🔄 Member WebSocket update received:", liveMember);
       setWsUpdateReceived(true);
 
       // Update the member in our local state
@@ -69,6 +72,30 @@ function GroupDetail({ group, userId, setGroup }: any) {
       setTimeout(() => setWsUpdateReceived(false), 3000);
     }
   }, [liveMember, updating]);
+
+  // Handle real-time updates via WebSocket for group status
+  useEffect(() => {
+    if (liveGroup) {
+      console.log("🔄 Group WebSocket update received:", liveGroup);
+      setWsUpdateReceived(true);
+
+      // Update the group state with complete data
+      setGroup(liveGroup);
+      
+      // Update members list
+      setMembers(liveGroup.members || []);
+
+      // Show a toast notification for real-time updates
+      if (liveGroup.status !== group?.status) {
+        toast.info(`Group status updated: ${liveGroup.status}`);
+      } else if (liveGroup.members?.length !== group?.members?.length) {
+        toast.info("New member joined the group");
+      }
+
+      // Reset the update indicator after 3 seconds
+      setTimeout(() => setWsUpdateReceived(false), 3000);
+    }
+  }, [liveGroup, group]);
 
   const handleUpdateStatus = async (
     status: "AGREED" | "DISAGREED",
@@ -108,17 +135,15 @@ function GroupDetail({ group, userId, setGroup }: any) {
         throw new Error(data.errors[0].message);
       }
 
-      console.log(
-        "✅ GraphQL mutation successful, waiting for WebSocket update"
-      );
+      console.log("✅ GraphQL mutation successful, waiting for WebSocket update");
       toast.success(`Status changed to ${status}! Waiting for confirmation...`);
-
-      // The actual UI update will now come from the WebSocket subscription
-      // We don't need to manually update the state here anymore
 
       // Check if all members have agreed
       const allAgreed = updatedMembers.every((m) => m.status === "AGREED");
+      console.log("All members agreed:", allAgreed, "Updated members:", updatedMembers);
+
       if (allAgreed) {
+        console.log("Updating group status to ACTIVE");
         // Update group status to ACTIVE
         const updateGroupResponse = await fetch(
           "http://localhost:8080/graphql",
@@ -127,11 +152,16 @@ function GroupDetail({ group, userId, setGroup }: any) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               query: `mutation UpdateGroupStatus($groupId: ID!, $status: GroupStatus!) {
-              updateGroupStatus(groupId: $groupId, status: $status) {
-                id
-                status
-              }
-            }`,
+                updateGroupStatus(groupId: $groupId, status: $status) {
+                  id
+                  status
+                  description
+                  totalAmount
+                  totalPeople
+                  leader { id name username }
+                  members { id amount status user { id name username } }
+                }
+              }`,
               variables: {
                 groupId: group.id,
                 status: "ACTIVE",
@@ -141,15 +171,18 @@ function GroupDetail({ group, userId, setGroup }: any) {
         );
 
         const updateGroupData = await updateGroupResponse.json();
+        console.log("Group status update response:", updateGroupData);
+
         if (updateGroupData.errors) {
           throw new Error(updateGroupData.errors[0].message);
         }
 
-        // Update local group status
-        setGroup((prev: any) => ({ ...prev, status: "ACTIVE" }));
+        // Update local group status with the complete group data
+        setGroup(updateGroupData.data.updateGroupStatus);
         toast.success("All members agreed! Group is now active.");
       }
     } catch (error: any) {
+      console.error("Error updating status:", error);
       toast.error(error.message || "Failed to update status");
       // Revert the optimistic update if there was an error
       setMembers(group?.members || []);
@@ -198,7 +231,11 @@ function GroupDetail({ group, userId, setGroup }: any) {
       }
 
       setCardInfo(data.data.generatePaymentCard);
-      toast.success("Virtual card generated successfully!");
+      
+      // 更新群组状态为已完成
+      setGroup((prev: any) => ({ ...prev, status: "COMPLETED" }));
+      
+      toast.success("Virtual card generated successfully! Group is now completed.");
     } catch (error: any) {
       console.error("Error generating card:", error);
       toast.error(error.message || "Failed to generate virtual card");
@@ -285,7 +322,7 @@ function GroupDetail({ group, userId, setGroup }: any) {
               <div className="mt-4 flex gap-2">
                 <Button
                   size="sm"
-                  disabled={!!updating}
+                  disabled={!!updating || group.status === "COMPLETED"}
                   variant={member.status === "AGREED" ? "default" : "outline"}
                   onClick={() => handleUpdateStatus("AGREED", member.id)}
                   className="flex-1"
@@ -294,7 +331,7 @@ function GroupDetail({ group, userId, setGroup }: any) {
                 </Button>
                 <Button
                   size="sm"
-                  disabled={!!updating}
+                  disabled={!!updating || group.status === "COMPLETED"}
                   variant={
                     member.status === "DISAGREED" ? "default" : "outline"
                   }
@@ -319,9 +356,11 @@ function GroupDetail({ group, userId, setGroup }: any) {
             <Button
               className="w-full"
               onClick={handleGenerateCard}
-              disabled={generatingCard}
+              disabled={generatingCard || group.status !== "ACTIVE"}
             >
-              {generatingCard ? "Generating..." : "Generate Virtual Card"}
+              {generatingCard 
+                ? "Generating..." 
+                : "Generate Virtual Card"}
             </Button>
           ) : (
             <div className="space-y-4">
@@ -347,12 +386,24 @@ function GroupDetail({ group, userId, setGroup }: any) {
               <Button
                 className="w-full"
                 onClick={handleGenerateCard}
-                disabled={generatingCard}
+                disabled={generatingCard || group.status !== "ACTIVE"}
               >
-                {generatingCard ? "Generating..." : "Generate New Card"}
+                {generatingCard 
+                  ? "Generating..." 
+                  : "Generate New Card"}
               </Button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Group Status Message (visible to all members) */}
+      {group.status === "COMPLETED" && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+          <div className="flex items-center gap-2 text-blue-700">
+            <span className="font-semibold">Group Status:</span>
+            <span>Payment completed. Virtual card has been generated.</span>
+          </div>
         </div>
       )}
     </div>
@@ -364,16 +415,15 @@ export default function DashboardPage() {
   const [groups, setGroups] = useState<any[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<any>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userName, setUserName] = useState<string>("User");
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setUserId(localStorage.getItem("userId"));
-      setUserName(localStorage.getItem("username") || "User");
-    }
-  }, []);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [filteredGroups, setFilteredGroups] = useState<any[]>([]);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  
+  const { userId, username, clearUser } = useUserStore();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const targetGroupId = searchParams.get('groupId');
 
   useEffect(() => {
     if (!userId) return;
@@ -400,6 +450,30 @@ export default function DashboardPage() {
       });
   }, [userId]);
 
+  // 处理 URL 参数中的 groupId
+  useEffect(() => {
+    if (targetGroupId && groups.length > 0) {
+      const targetGroup = groups.find(g => g.id === targetGroupId);
+      if (targetGroup) {
+        setSelectedGroupId(targetGroupId);
+        toast.success("Welcome to your group!");
+      }
+    }
+  }, [targetGroupId, groups]);
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredGroups(groups);
+    } else {
+      const query = searchQuery.toLowerCase().trim();
+      const filtered = groups.filter((group) => {
+        const description = group.description || `Group #${group.id}`;
+        return description.toLowerCase().includes(query);
+      });
+      setFilteredGroups(filtered);
+    }
+  }, [searchQuery, groups]);
+
   useEffect(() => {
     if (!selectedGroupId) return;
     fetch("http://localhost:8080/graphql", {
@@ -423,23 +497,49 @@ export default function DashboardPage() {
       .then((data) => setSelectedGroup(data.data.group));
   }, [selectedGroupId]);
 
-  // 侧栏内容（移除账户信息）
-  const DrawerContent = () => {
-    const handleCopyLink = (groupId: string) => {
-      const link = `${window.location.origin}/dashboard/join?groupId=${groupId}`;
-      navigator.clipboard.writeText(link);
-      toast.success("Invite link copied to clipboard");
-    };
+  const clearSearch = useCallback(() => {
+    setSearchQuery("");
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, []);
 
-    return (
-      <div className="flex flex-col h-full w-72 bg-white shadow-lg">
-        <div className="flex items-center gap-2 p-4 border-b">
-          <SearchIcon className="w-5 h-5 text-gray-400" />
-          <input
-            className="flex-1 bg-transparent outline-none text-base"
-            placeholder="Search groups..."
-          />
-        </div>
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  }, []);
+
+const DrawerContent = useCallback(() => {
+  const handleCopyLink = (groupId: string) => {
+    // 使用新的邀请链接格式
+    const link = `${window.location.origin}/invite/${groupId}`;
+    navigator.clipboard.writeText(link);
+    toast.success("Invite link copied to clipboard");
+  };
+
+  return (
+    <div className="flex flex-col h-full w-72 bg-white shadow-lg">
+      <div className="flex items-center gap-2 p-4 border-b">
+        <SearchIcon className="w-5 h-5 text-gray-400" />
+        <input
+          key="search-input" 
+          ref={searchInputRef}
+          className="flex-1 bg-transparent outline-none text-base"
+          placeholder="Search by group name..."
+          value={searchQuery}
+          onChange={handleSearchChange}
+          autoComplete="off"
+          autoFocus 
+        />
+        {searchQuery && (
+          <button
+            onClick={clearSearch}
+            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+            type="button"
+          >
+            <XIcon className="w-4 h-4 text-gray-400" />
+          </button>
+        )}
+      </div>
         <div className="p-4 flex flex-col gap-2 border-b">
           <Button
             className="w-full flex items-center gap-2 justify-center"
@@ -464,43 +564,54 @@ export default function DashboardPage() {
             <LinkIcon className="w-5 h-5" /> Join by Link
           </Button>
         </div>
+        
         <div className="flex-1 overflow-y-auto">
-          {groups.map((group) => (
-            <div key={group.id}>
-              <GroupListItem
-                group={group}
-                selected={group.id === selectedGroupId}
-                onClick={() => {
-                  setSelectedGroupId(group.id);
-                  setDrawerOpen(false);
-                }}
-              />
-              {group.leader?.id === userId && (
-                <div className="px-4 py-2 border-b bg-gray-50">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full flex items-center gap-2 justify-center text-gray-600"
-                    onClick={() => handleCopyLink(group.id)}
-                  >
-                    <CopyIcon className="w-4 h-4" />
-                    Copy Invite Link
-                  </Button>
-                </div>
-              )}
+          {searchQuery && (
+            <div className="px-4 py-2 text-sm text-gray-500 border-b bg-gray-50">
+              {filteredGroups.length} result(s) for "{searchQuery}"
             </div>
-          ))}
+          )}
+          
+          {filteredGroups.length > 0 ? (
+            filteredGroups.map((group) => (
+              <div key={group.id}>
+                <GroupListItem
+                  group={group}
+                  selected={group.id === selectedGroupId}
+                  onClick={() => {
+                    setSelectedGroupId(group.id);
+                    setDrawerOpen(false);
+                  }}
+                />
+                {String(group.leader?.id) === String(userId) && (
+                  <div className="px-4 py-2 border-b bg-gray-50">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full flex items-center gap-2 justify-center text-gray-600"
+                      onClick={() => handleCopyLink(group.id)}
+                    >
+                      <CopyIcon className="w-4 h-4" />
+                      Copy Invite Link
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="px-4 py-8 text-center text-gray-500">
+              {searchQuery ? "No groups found" : "No groups yet"}
+            </div>
+          )}
         </div>
-      </div>
-    );
-  };
+    </div>
+  );
+}, [filteredGroups, selectedGroupId, userId]); 
 
   // 右上角头像菜单
   const handleLogout = () => {
-    localStorage.removeItem("userId");
-    localStorage.removeItem("token");
-    localStorage.removeItem("username");
-    window.location.href = "/login";
+    clearUser();
+    router.push('/login');
   };
 
   return (
@@ -525,7 +636,7 @@ export default function DashboardPage() {
           {avatarMenuOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50 border">
               <div className="px-4 py-2 text-gray-700 font-semibold border-b">
-                {userName}
+                {username}
               </div>
               <button
                 className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100"

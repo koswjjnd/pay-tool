@@ -22,10 +22,8 @@ public class AuthController {
     @PostMapping("/google")
     public ResponseEntity<?> googleLogin(@RequestBody GoogleLoginRequest request) {
         try {
-            String token = googleAuthService.authenticateGoogleUser(request.getCredential());
-            Map<String, String> response = new HashMap<>();
-            response.put("token", token);
-            return ResponseEntity.ok(response);
+            Map<String, Object> authResponse = googleAuthService.authenticateGoogleUser(request.getCredential());
+            return ResponseEntity.ok(authResponse);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.badRequest().body("Invalid Google token: " + e.getMessage());
