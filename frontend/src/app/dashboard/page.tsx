@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMemberSubscription } from "@/hooks/useSubscription";
+import { useUserStore } from '@/store/userStore';
+import { useRouter } from "next/navigation";
 
 // 群组列表项组件
 function GroupListItem({ group, selected, onClick }: any) {
@@ -365,20 +367,13 @@ export default function DashboardPage() {
   const [groups, setGroups] = useState<any[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<any>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userName, setUserName] = useState<string>("User");
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
-  
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [filteredGroups, setFilteredGroups] = useState<any[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setUserId(localStorage.getItem("userId"));
-      setUserName(localStorage.getItem("username") || "User");
-    }
-  }, []);
+  
+  const { userId, username, clearUser } = useUserStore();
+  const router = useRouter();
 
   useEffect(() => {
     if (!userId) return;
@@ -553,10 +548,8 @@ export default function DashboardPage() {
 
   // 右上角头像菜单
   const handleLogout = () => {
-    localStorage.removeItem("userId");
-    localStorage.removeItem("token");
-    localStorage.removeItem("username");
-    window.location.href = "/login";
+    clearUser();
+    router.push('/login');
   };
 
   return (
@@ -581,7 +574,7 @@ export default function DashboardPage() {
           {avatarMenuOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50 border">
               <div className="px-4 py-2 text-gray-700 font-semibold border-b">
-                {userName}
+                {username}
               </div>
               <button
                 className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100"

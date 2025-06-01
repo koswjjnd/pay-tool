@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { LinkIcon } from "lucide-react";
+import { useUserStore } from '@/store/userStore';
 
 export default function JoinGroupPage() {
   const router = useRouter();
@@ -13,36 +14,33 @@ export default function JoinGroupPage() {
   const [loading, setLoading] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
   const groupId = searchParams.get("groupId");
+  const { userId } = useUserStore();
 
   useEffect(() => {
-    const userId = localStorage.getItem("userId");
     if (groupId && !hasJoined) {
       if (!userId) {
-        localStorage.setItem("pendingJoinUrl", window.location.pathname + window.location.search);
+        // 使用sessionStorage存储待处理的URL
+        sessionStorage.setItem("pendingJoinUrl", window.location.pathname + window.location.search);
         router.push("/login");
         return;
       }
       setHasJoined(true);
       handleJoinWithGroupId(groupId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupId, hasJoined]);
+  }, [groupId, hasJoined, userId]);
 
   useEffect(() => {
     // 登录后自动跳回并自动加群
-    const pendingUrl = localStorage.getItem("pendingJoinUrl");
-    const userId = localStorage.getItem("userId");
+    const pendingUrl = sessionStorage.getItem("pendingJoinUrl");
     if (pendingUrl && userId && !hasJoined) {
-      localStorage.removeItem("pendingJoinUrl");
+      sessionStorage.removeItem("pendingJoinUrl");
       router.replace(pendingUrl);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [userId, hasJoined, router]);
 
   const handleJoinWithGroupId = async (groupId: string) => {
     setLoading(true);
     try {
-      const userId = localStorage.getItem("userId");
       if (!userId) {
         toast.error("Please login first");
         return;
