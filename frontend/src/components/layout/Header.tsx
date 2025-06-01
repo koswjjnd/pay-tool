@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment } from 'react';
 import { Disclosure, Menu, Transition } from '@headlessui/react';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
+import { useUserStore } from '@/store/userStore';
 
 // 只保留首页导航项
 const navigation = [
@@ -15,23 +16,7 @@ function classNames(...classes: string[]) {
 }
 
 export default function Header() {
-  const [userId, setUserId] = useState<string | null | undefined>(undefined);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setUserId(localStorage.getItem('userId'));
-    }
-  }, []);
-
-  if (userId === undefined) {
-    // 初始加载中
-    return (
-      <nav className="bg-white shadow h-16 flex items-center px-4">
-        <span className="text-2xl font-bold text-primary-600">PayTool</span>
-        <span className="ml-4 text-gray-400 animate-pulse">Loading...</span>
-      </nav>
-    );
-  }
+  const { userId, username, avatar } = useUserStore();
 
   return (
     <Disclosure as="nav" className="bg-white shadow">
@@ -53,7 +38,9 @@ export default function Header() {
                     <Menu.Button className="flex rounded-full bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
                       <span className="sr-only">Open user menu</span>
                       <div className="h-8 w-8 rounded-full bg-primary-500 flex items-center justify-center text-white">
-                        {userId ? 'U' : '?'}
+                        {avatar ? (
+                          <img src={avatar} alt={username || 'User'} className="h-full w-full rounded-full" />
+                        ) : userId ? 'U' : '?'}
                       </div>
                     </Menu.Button>
                   </div>
@@ -76,7 +63,7 @@ export default function Header() {
                                 'block px-4 py-2 text-sm text-gray-700 cursor-default'
                               )}
                             >
-                              Signed in
+                              {username || 'Signed in'}
                             </span>
                           )}
                         </Menu.Item>
@@ -136,17 +123,19 @@ export default function Header() {
               <div className="flex items-center px-4">
                 <div className="flex-shrink-0">
                   <div className="h-10 w-10 rounded-full bg-primary-500 flex items-center justify-center text-white">
-                    {userId ? 'U' : '?'}
+                    {avatar ? (
+                      <img src={avatar} alt={username || 'User'} className="h-full w-full rounded-full" />
+                    ) : userId ? 'U' : '?'}
                   </div>
                 </div>
                 <div className="ml-3">
-                  <div className="text-base font-medium text-gray-800">{userId ? 'User' : 'Guest'}</div>
+                  <div className="text-base font-medium text-gray-800">{username || (userId ? 'User' : 'Guest')}</div>
                   <div className="text-sm font-medium text-gray-500">{userId ? 'Signed in' : 'Not signed in'}</div>
                 </div>
               </div>
               <div className="mt-3 space-y-1">
                 {userId ? (
-                  <span className="block px-4 py-2 text-base text-gray-500 cursor-default">Signed in</span>
+                  <span className="block px-4 py-2 text-base text-gray-500 cursor-default">Signed in as {username}</span>
                 ) : (
                   <>
                     <Disclosure.Button

@@ -2,9 +2,12 @@
 
 import { GoogleLogin } from '@react-oauth/google';
 import { useRouter } from 'next/navigation';
+import { useUserStore } from '@/store/userStore';
 
 export default function GoogleLoginButton() {
   const router = useRouter();
+  const setUser = useUserStore((state) => state.setUser);
+  const setAvatar = useUserStore((state) => state.setAvatar);
 
   const handleSuccess = async (credentialResponse: any) => {
     try {
@@ -21,15 +24,20 @@ export default function GoogleLoginButton() {
       if (response.ok) {
         const data = await response.json();
         if (data.avatar) {
-          localStorage.setItem("avatar", data.avatar);
-          window.dispatchEvent(new Event("avatar-updated"));
+          setAvatar(data.avatar);
+        }
+        if (data.token && data.userId && data.username) {
+          setUser({
+            token: data.token,
+            userId: data.userId,
+            username: data.username,
+            avatar: data.avatar
+          });
         }
         router.push('/dashboard');
       } else {
         console.error('Login failed');
       }
-
-      console.log('credentialResponse:', credentialResponse);
     } catch (error) {
       console.error('Error during login:', error);
     }
@@ -43,6 +51,7 @@ export default function GoogleLoginButton() {
           console.log('Login Failed');
         }}
         useOneTap
+        clientId="YOUR_GOOGLE_CLIENT_ID"
       />
     </div>
   );
