@@ -51,7 +51,6 @@ export default function GoogleLoginButton() {
           console.log('Login Failed');
         }}
         useOneTap
-        clientId="YOUR_GOOGLE_CLIENT_ID"
       />
     </div>
   );

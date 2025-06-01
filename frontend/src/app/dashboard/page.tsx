@@ -583,7 +583,7 @@ const DrawerContent = useCallback(() => {
                     setDrawerOpen(false);
                   }}
                 />
-                {group.leader?.id === userId && (
+                {String(group.leader?.id) === String(userId) && (
                   <div className="px-4 py-2 border-b bg-gray-50">
                     <Button
                       variant="ghost"
