@@ -222,10 +222,13 @@ function GroupDetail({ group, userId, setGroup }: any) {
       const data = await response.json();
       console.log("Response data:", data);
 
+      // ✅ 处理错误情况
       if (data.errors) {
-        throw new Error(data.errors[0].message);
+        console.error("GraphQL error:", data.errors[0].message);
+        alert(data.errors[0].message); // 或者其他自定义提示
+        return;
       }
-
+      
       if (!data.data?.generatePaymentCard) {
         throw new Error("No card data received");
       }
