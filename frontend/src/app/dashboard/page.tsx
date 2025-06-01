@@ -14,9 +14,8 @@ import {
 import { toast } from "sonner";
 import { useMemberSubscription, useGroupSubscription } from "@/hooks/useSubscription";
 import { useUserStore } from '@/store/userStore';
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
-// 群组列表项组件
 function GroupListItem({ group, selected, onClick }: any) {
   return (
     <div
@@ -423,6 +422,8 @@ export default function DashboardPage() {
   
   const { userId, username, clearUser } = useUserStore();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const targetGroupId = searchParams.get('groupId');
 
   useEffect(() => {
     if (!userId) return;
@@ -448,6 +449,17 @@ export default function DashboardPage() {
         setGroups(data.data.userGroups || []);
       });
   }, [userId]);
+
+  // 处理 URL 参数中的 groupId
+  useEffect(() => {
+    if (targetGroupId && groups.length > 0) {
+      const targetGroup = groups.find(g => g.id === targetGroupId);
+      if (targetGroup) {
+        setSelectedGroupId(targetGroupId);
+        toast.success("Welcome to your group!");
+      }
+    }
+  }, [targetGroupId, groups]);
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -498,7 +510,8 @@ export default function DashboardPage() {
 
 const DrawerContent = useCallback(() => {
   const handleCopyLink = (groupId: string) => {
-    const link = `${window.location.origin}/dashboard/join?groupId=${groupId}`;
+    // 使用新的邀请链接格式
+    const link = `${window.location.origin}/invite/${groupId}`;
     navigator.clipboard.writeText(link);
     toast.success("Invite link copied to clipboard");
   };
