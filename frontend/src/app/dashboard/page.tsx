@@ -427,6 +427,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const targetGroupId = searchParams.get('groupId');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -511,105 +512,105 @@ export default function DashboardPage() {
     setSearchQuery(e.target.value);
   }, []);
 
-const DrawerContent = useCallback(() => {
   const handleCopyLink = (groupId: string) => {
-    // 使用新的邀请链接格式
     const link = `${window.location.origin}/invite/${groupId}`;
     navigator.clipboard.writeText(link);
-    toast.success("Invite link copied to clipboard");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  return (
-    <div className="flex flex-col h-full w-72 bg-white shadow-lg">
-      <div className="flex items-center gap-2 p-4 border-b">
-        <SearchIcon className="w-5 h-5 text-gray-400" />
-        <input
-          key="search-input" 
-          ref={searchInputRef}
-          className="flex-1 bg-transparent outline-none text-base"
-          placeholder="Search by group name..."
-          value={searchQuery}
-          onChange={handleSearchChange}
-          autoComplete="off"
-          autoFocus 
-        />
-        {searchQuery && (
-          <button
-            onClick={clearSearch}
-            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-            type="button"
-          >
-            <XIcon className="w-4 h-4 text-gray-400" />
-          </button>
-        )}
-      </div>
-        <div className="p-4 flex flex-col gap-2 border-b">
-          <Button
-            className="w-full flex items-center gap-2 justify-center"
-            onClick={() => {
-              setDrawerOpen(false);
-              setTimeout(
-                () => (window.location.href = "/dashboard/create-group"),
-                200
-              );
-            }}
-          >
-            <PlusIcon className="w-5 h-5" /> Create Group
-          </Button>
-          <Button
-            className="w-full flex items-center gap-2 justify-center"
-            variant="outline"
-            onClick={() => {
-              setDrawerOpen(false);
-              setTimeout(() => (window.location.href = "/dashboard/join"), 200);
-            }}
-          >
-            <LinkIcon className="w-5 h-5" /> Join by Link
-          </Button>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto">
+  const DrawerContent = useCallback(({ handleCopyLink }: any) => {
+    return (
+      <div className="flex flex-col h-full w-72 bg-white shadow-lg">
+        <div className="flex items-center gap-2 p-4 border-b">
+          <SearchIcon className="w-5 h-5 text-gray-400" />
+          <input
+            key="search-input" 
+            ref={searchInputRef}
+            className="flex-1 bg-transparent outline-none text-base"
+            placeholder="Search by group name..."
+            value={searchQuery}
+            onChange={handleSearchChange}
+            autoComplete="off"
+            autoFocus 
+          />
           {searchQuery && (
-            <div className="px-4 py-2 text-sm text-gray-500 border-b bg-gray-50">
-              {filteredGroups.length} result(s) for "{searchQuery}"
-            </div>
-          )}
-          
-          {filteredGroups.length > 0 ? (
-            filteredGroups.map((group) => (
-              <div key={group.id}>
-                <GroupListItem
-                  group={group}
-                  selected={group.id === selectedGroupId}
-                  onClick={() => {
-                    setSelectedGroupId(group.id);
-                    setDrawerOpen(false);
-                  }}
-                />
-                {String(group.leader?.id) === String(userId) && (
-                  <div className="px-4 py-2 border-b bg-gray-50">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full flex items-center gap-2 justify-center text-gray-600"
-                      onClick={() => handleCopyLink(group.id)}
-                    >
-                      <CopyIcon className="w-4 h-4" />
-                      Copy Invite Link
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ))
-          ) : (
-            <div className="px-4 py-8 text-center text-gray-500">
-              {searchQuery ? "No groups found" : "No groups yet"}
-            </div>
+            <button
+              onClick={clearSearch}
+              className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              type="button"
+            >
+              <XIcon className="w-4 h-4 text-gray-400" />
+            </button>
           )}
         </div>
-    </div>
-  );
-}, [filteredGroups, selectedGroupId, userId]); 
+          <div className="p-4 flex flex-col gap-2 border-b">
+            <Button
+              className="w-full flex items-center gap-2 justify-center"
+              onClick={() => {
+                setDrawerOpen(false);
+                setTimeout(
+                  () => (window.location.href = "/dashboard/create-group"),
+                  200
+                );
+              }}
+            >
+              <PlusIcon className="w-5 h-5" /> Create Group
+            </Button>
+            <Button
+              className="w-full flex items-center gap-2 justify-center"
+              variant="outline"
+              onClick={() => {
+                setDrawerOpen(false);
+                setTimeout(() => (window.location.href = "/dashboard/join"), 200);
+              }}
+            >
+              <LinkIcon className="w-5 h-5" /> Join by Link
+            </Button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto">
+            {searchQuery && (
+              <div className="px-4 py-2 text-sm text-gray-500 border-b bg-gray-50">
+                {filteredGroups.length} result(s) for "{searchQuery}"
+              </div>
+            )}
+            
+            {filteredGroups.length > 0 ? (
+              filteredGroups.map((group) => (
+                <div key={group.id}>
+                  <GroupListItem
+                    group={group}
+                    selected={group.id === selectedGroupId}
+                    onClick={() => {
+                      setSelectedGroupId(group.id);
+                      setDrawerOpen(false);
+                    }}
+                  />
+                  {String(group.leader?.id) === String(userId) && (
+                    <div className="px-4 py-2 border-b bg-gray-50">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full flex items-center gap-2 justify-center text-gray-600"
+                        onClick={() => handleCopyLink(group.id)}
+                      >
+                        <CopyIcon className="w-4 h-4" />
+                        Copy Invite Link
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="px-4 py-8 text-center text-gray-500">
+                {searchQuery ? "No groups found" : "No groups yet"}
+              </div>
+            )}
+          </div>
+      </div>
+    );
+  }, [filteredGroups, selectedGroupId, userId]);
 
   // 右上角头像菜单
   const handleLogout = () => {
@@ -659,7 +660,7 @@ const DrawerContent = useCallback(() => {
             onClick={() => setDrawerOpen(false)}
           />
           <div className="fixed inset-y-0 left-0 z-50">
-            <DrawerContent />
+            <DrawerContent handleCopyLink={handleCopyLink} />
           </div>
         </>
       )}
@@ -699,6 +700,36 @@ const DrawerContent = useCallback(() => {
           />
         )}
       </main>
+      {copied && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 100,
+            right: 62,
+            zIndex: 9999,
+            padding: '12px 32px',
+            borderRadius: '12px',
+            background: 'linear-gradient(90deg, #e0f2fe 0%, #bae6fd 100%)',
+            color: '#0369a1',
+            fontWeight: 600,
+            fontSize: '1.1rem',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+            opacity: 1,
+            animation: 'fadeout 2s forwards'
+          }}
+        >
+          Link Copied!
+          <style>
+            {`
+              @keyframes fadeout {
+                0% { opacity: 1; }
+                80% { opacity: 1; }
+                100% { opacity: 0; }
+              }
+            `}
+          </style>
+        </div>
+      )}
     </div>
   );
 }
