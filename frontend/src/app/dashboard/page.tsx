@@ -80,16 +80,23 @@ function GroupDetail({ group, userId, setGroup }: any) {
       console.log("🔄 Group WebSocket update received:", liveGroup);
       setWsUpdateReceived(true);
 
-      // Update the group state
+      // Update the group state with complete data
       setGroup(liveGroup);
+      
+      // Update members list
+      setMembers(liveGroup.members || []);
 
       // Show a toast notification for real-time updates
-      toast.info(`Group status updated via WebSocket: ${liveGroup.status}`);
+      if (liveGroup.status !== group?.status) {
+        toast.info(`Group status updated: ${liveGroup.status}`);
+      } else if (liveGroup.members?.length !== group?.members?.length) {
+        toast.info("New member joined the group");
+      }
 
       // Reset the update indicator after 3 seconds
       setTimeout(() => setWsUpdateReceived(false), 3000);
     }
-  }, [liveGroup, setGroup]);
+  }, [liveGroup, group]);
 
   const handleUpdateStatus = async (
     status: "AGREED" | "DISAGREED",

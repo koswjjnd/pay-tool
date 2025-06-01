@@ -10,6 +10,7 @@ import com.paytool.repository.GroupRepository;
 import com.paytool.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.Optional;
 
 @Service
 public class GroupService {
@@ -33,38 +34,36 @@ public class GroupService {
     public GroupMember joinGroup(Long groupId, Long userId) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new RuntimeException("Group not found"));
-
-        if (group.getStatus() != GroupStatus.PENDING && group.getStatus() != GroupStatus.ACTIVE) {
-            throw new RuntimeException("Group is not available for joining");
-        }
-
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // 检查该用户是否已在组内
-        boolean alreadyInGroup = group.getMembers().stream()
-                .anyMatch(member -> member.getUser() != null && member.getUser().getId().equals(userId));
-        if (alreadyInGroup) {
-            throw new RuntimeException("User already in the group");
+        // Check if user is already a member
+        Optional<GroupMember> existingMember = groupMemberRepository.findByGroupIdAndUserId(groupId, userId);
+        if (existingMember.isPresent()) {
+            throw new RuntimeException("User is already a member of this group");
         }
 
-        // 统计现有成员数
-        long currentMemberCount = group.getMembers().stream()
-                .filter(member -> member.getUser() != null)
-                .count();
-        if (currentMemberCount >= group.getTotalPeople()) {
-            throw new RuntimeException("No available slots in the group");
-        }
-
+        // Calculate split amount
         double splitAmount = group.getTotalAmount() / group.getTotalPeople();
-        GroupMember newMember = new GroupMember();
-        newMember.setGroup(group);
-        newMember.setUser(user);
-        newMember.setStatus(MemberStatus.PENDING);
-        newMember.setAmount(splitAmount);
-        groupMemberRepository.save(newMember);
-        groupPublisher.publishMemberStatus(groupId.toString(), newMember);
-        return newMember;
+
+        // Create new member
+        GroupMember member = new GroupMember();
+        member.setGroup(group);
+        member.setUser(user);
+        member.setAmount(splitAmount);
+        member.setStatus(MemberStatus.PENDING);
+
+        // Save member
+        GroupMember savedMember = groupMemberRepository.save(member);
+
+        // Fetch updated group with all members
+        Group updatedGroup = groupRepository.findById(groupId)
+                .orElseThrow(() -> new RuntimeException("Group not found"));
+
+        // Publish group update
+        groupPublisher.publishGroupStatus(groupId.toString(), updatedGroup);
+
+        return savedMember;
     }
 
     @Transactional
