@@ -13,7 +13,6 @@ export default function JoinGroupPage() {
   const [inviteLink, setInviteLink] = useState("");
   const [loading, setLoading] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
-  const [amount, setAmount] = useState("");
   const [groupInfo, setGroupInfo] = useState<any>(null);
   const groupId = searchParams.get("groupId");
   const { userId } = useUserStore();
@@ -21,16 +20,18 @@ export default function JoinGroupPage() {
   useEffect(() => {
     if (groupId && !hasJoined) {
       if (!userId) {
-        sessionStorage.setItem("pendingJoinUrl", window.location.pathname + window.location.search);
+        // 保存完整的 URL（包括参数）
+        const currentUrl = window.location.pathname + window.location.search;
+        sessionStorage.setItem("pendingJoinUrl", currentUrl);
         router.push("/login");
         return;
       }
+      // 如果有 groupId，获取群组信息
       fetchGroupInfo(groupId);
     }
   }, [groupId, hasJoined, userId]);
 
   useEffect(() => {
-
     const pendingUrl = sessionStorage.getItem("pendingJoinUrl");
     if (pendingUrl && userId && !hasJoined) {
       sessionStorage.removeItem("pendingJoinUrl");
@@ -86,39 +87,43 @@ export default function JoinGroupPage() {
     }
   };
 
-  const handleJoinWithGroupId = async (groupId: string, joinAmount?: string) => {
+  const handleJoinWithGroupId = async (groupId: string) => {
+    console.log('handleJoinWithGroupId called with:', { groupId, userId });
+    
     setLoading(true);
     try {
       if (!userId) {
         toast.error("Please login first");
-        return;
-      }
-
-      const finalAmount = joinAmount || amount;
-      if (!finalAmount || parseFloat(finalAmount) <= 0) {
-        toast.error("Please enter a valid amount");
         setLoading(false);
         return;
       }
 
+      // 根据后端代码，joinGroup 只需要 groupId 和 userId
       const response = await fetch("http://localhost:8080/graphql", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          query: `mutation JoinGroup($groupId: ID!, $amount: Float!) {
-            joinGroup(groupId: $groupId, amount: $amount) {
+          query: `mutation JoinGroup($groupId: ID!, $userId: ID!) {
+            joinGroup(groupId: $groupId, userId: $userId) {
               id
+              amount
               status
+              user {
+                id
+                username
+              }
             }
           }`,
           variables: {
             groupId: groupId,
-            amount: parseFloat(finalAmount),
+            userId: userId,
           },
         }),
       });
 
       const data = await response.json();
+      console.log('JoinGroup mutation response:', data);
+      
       if (data.errors) {
         throw new Error(data.errors[0].message);
       }
@@ -126,6 +131,7 @@ export default function JoinGroupPage() {
       toast.success("Successfully joined the group!");
       router.push(`/dashboard?groupId=${groupId}`);
     } catch (error: any) {
+      console.error('Error in handleJoinWithGroupId:', error);
       toast.error(error.message || "Failed to join the group");
     } finally {
       setLoading(false);
@@ -145,7 +151,6 @@ export default function JoinGroupPage() {
       if (url.pathname.startsWith('/invite/')) {
         groupIdFromLink = url.pathname.split('/invite/')[1];
       } else {
-
         groupIdFromLink = url.searchParams.get("groupId");
       }
       
@@ -154,14 +159,12 @@ export default function JoinGroupPage() {
         return;
       }
 
-  
       await fetchGroupInfo(groupIdFromLink);
       setHasJoined(true);
     } catch (error) {
       toast.error("Invalid invite link format");
     }
   };
-
 
   if (groupInfo) {
     return (
@@ -188,31 +191,29 @@ export default function JoinGroupPage() {
                 <span className="text-gray-600">Members:</span>
                 <span className="font-medium">{groupInfo.totalPeople} people</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Your Share:</span>
+                <span className="font-medium text-primary-600">
+                  ${(groupInfo.totalAmount / groupInfo.totalPeople).toFixed(2)}
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Your Share Amount
-              </label>
-              <Input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="Enter your amount"
-                step="0.01"
-                min="0"
-              />
-              <p className="mt-1 text-sm text-gray-500">
-                Average per person: ${(groupInfo.totalAmount / groupInfo.totalPeople).toFixed(2)}
-              </p>
-            </div>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <p className="text-sm text-blue-800">
+              By joining this group, you agree to pay your share of <strong>${(groupInfo.totalAmount / groupInfo.totalPeople).toFixed(2)}</strong> 
+            </p>
+          </div>
 
+          <div className="space-y-4">
             <Button
               className="w-full"
-              onClick={() => handleJoinWithGroupId(groupInfo.id)}
-              disabled={loading || !amount}
+              onClick={() => {
+                console.log('Join button clicked, groupInfo:', groupInfo);
+                handleJoinWithGroupId(groupInfo.id);
+              }}
+              disabled={loading}
             >
               {loading ? "Joining..." : "Join Group"}
             </Button>

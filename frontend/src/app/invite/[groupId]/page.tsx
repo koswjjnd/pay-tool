@@ -19,10 +19,12 @@ export default function InvitePage({ params }: { params: { groupId: string } }) 
       return;
     }
 
+    // 获取群组信息
     fetchGroupInfo();
   }, [groupId]);
 
   useEffect(() => {
+    // 如果用户已登录且群组信息已加载，自动处理加入
     if (userId && groupInfo && !loading) {
       handleAutoJoin();
     }
@@ -74,17 +76,22 @@ export default function InvitePage({ params }: { params: { groupId: string } }) 
   };
 
   const handleAutoJoin = async () => {
+    // 检查是否已经是成员
     const isMember = groupInfo.members.some((m: any) => m.user.id === userId);
     
     if (isMember) {
+      // 已经是成员，直接跳转到 dashboard 并选中该组
       toast.info("You're already a member of this group");
       router.push(`/dashboard?groupId=${groupId}`);
     } else {
+      // 不是成员，跳转到 join 页面让用户输入金额
+      // 重要：确保带上 groupId 参数
       router.push(`/dashboard/join?groupId=${groupId}`);
     }
   };
 
   const handleLoginClick = () => {
+    // 保存当前邀请链接，登录后返回
     router.push(`/login?redirect=/invite/${groupId}`);
   };
 
@@ -100,9 +107,10 @@ export default function InvitePage({ params }: { params: { groupId: string } }) 
   }
 
   if (!groupInfo) {
-    return null; 
+    return null; // 已经在 fetchGroupInfo 中处理了重定向
   }
 
+  // 如果用户未登录，显示群组信息和登录按钮
   if (!userId) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
@@ -162,6 +170,7 @@ export default function InvitePage({ params }: { params: { groupId: string } }) 
     );
   }
 
+  // 用户已登录，显示处理中
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="text-center">
