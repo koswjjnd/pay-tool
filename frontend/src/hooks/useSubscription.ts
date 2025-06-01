@@ -69,8 +69,8 @@ const createWebSocketClient = () => {
   const setupClient = () => {
     // Safely get token
     const getToken = () => {
-      if (typeof window !== 'undefined') {
-        return localStorage.getItem('token');
+      if (typeof window !== "undefined") {
+        return localStorage.getItem("token");
       }
       return null;
     };
@@ -104,7 +104,7 @@ const createWebSocketClient = () => {
           console.log("WebSocket closed:", event);
           if (retryCount < maxRetries) {
             setTimeout(() => {
-              console.log('Attempting to reconnect...');
+              console.log("Attempting to reconnect...");
               client = createWebSocketClient();
             }, retryDelay);
           }
@@ -115,7 +115,7 @@ const createWebSocketClient = () => {
   };
 
   // Only execute setupClient on client side
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     setupClient();
   }
 
@@ -126,7 +126,7 @@ const createWebSocketClient = () => {
 };
 
 // Create WebSocket client instance only on client side
-const client = typeof window !== 'undefined' ? createWebSocketClient() : null;
+const client = typeof window !== "undefined" ? createWebSocketClient() : null;
 
 export const useGroupSubscription = (groupId: string) => {
   const [group, setGroup] = useState<any>(null);
@@ -135,7 +135,7 @@ export const useGroupSubscription = (groupId: string) => {
   useEffect(() => {
     if (!groupId || !client) return;
 
-    console.log('Setting up group subscription for:', groupId);
+    console.log("Setting up group subscription for:", groupId);
     const subscription = client.subscribe<GroupSubscriptionResponse>(
       {
         query: `subscription GroupStatusChanged($groupId: ID!) {
@@ -153,25 +153,50 @@ export const useGroupSubscription = (groupId: string) => {
       },
       {
         next: (data: ExecutionResult<GroupSubscriptionResponse>) => {
-          console.log('Group status update received:', data);
+          console.log("Group status update received:", data);
           if (data.data?.groupStatusChanged) {
-            console.log('Updating group state with:', data.data.groupStatusChanged);
+            console.log(
+              "Updating group state with:",
+              data.data.groupStatusChanged
+            );
             setGroup(data.data.groupStatusChanged);
           }
         },
         error: (err: Error) => {
-          console.error('Group subscription error:', err);
+          console.warn("Group subscription warning:", err);
           setError(err);
         },
         complete: () => {
-          console.log('Group subscription completed');
+          console.log("Group subscription completed");
         },
       }
     );
 
+    // 在控制台打印 subscription，检查它到底是函数还是对象
+    console.log("Group subscription returned:", subscription);
+
     return () => {
-      console.log('Cleaning up group subscription for:', groupId);
-      subscription.unsubscribe();
+      console.log("Cleaning up group subscription for:", groupId);
+
+      // graphql-ws subscribe 返回值是“取消订阅”的函数
+      // 所以直接调用 subscription() 即可，而不是 subscription.unsubscribe()
+      if (typeof subscription === "function") {
+        subscription();
+      } else if (
+        (subscription as any).unsubscribe &&
+        typeof (subscription as any).unsubscribe === "function"
+      ) {
+        (subscription as any).unsubscribe();
+      } else if (
+        (subscription as any).dispose &&
+        typeof (subscription as any).dispose === "function"
+      ) {
+        (subscription as any).dispose();
+      } else {
+        console.warn(
+          "Unable to cancel group subscription: no unsubscribe/dispose function found."
+        );
+      }
     };
   }, [groupId]);
 
@@ -185,6 +210,7 @@ export const useMemberSubscription = (groupId: string) => {
   useEffect(() => {
     if (!groupId || !client) return;
 
+    console.log("Setting up member subscription for:", groupId);
     const subscription = client.subscribe<MemberSubscriptionResponse>(
       {
         query: `subscription MemberStatusChanged($groupId: ID!) {
@@ -199,23 +225,45 @@ export const useMemberSubscription = (groupId: string) => {
       },
       {
         next: (data: ExecutionResult<MemberSubscriptionResponse>) => {
-          console.log('Member status update received:', data);
+          console.log("Member status update received:", data);
           if (data.data?.memberStatusChanged) {
             setMember(data.data.memberStatusChanged);
           }
         },
         error: (err: Error) => {
-          console.error('Member subscription error:', err);
+          console.warn("Member subscription warning:", err);
           setError(err);
         },
         complete: () => {
-          console.log('Member subscription completed');
+          console.log("Member subscription completed");
         },
       }
     );
 
+    // 在控制台打印 subscription，检查它到底是函数还是对象
+    console.log("Member subscription returned:", subscription);
+
     return () => {
-      subscription.unsubscribe();
+      console.log("Cleaning up member subscription for:", groupId);
+
+      // graphql-ws subscribe 返回值是“取消订阅”的函数
+      if (typeof subscription === "function") {
+        subscription();
+      } else if (
+        (subscription as any).unsubscribe &&
+        typeof (subscription as any).unsubscribe === "function"
+      ) {
+        (subscription as any).unsubscribe();
+      } else if (
+        (subscription as any).dispose &&
+        typeof (subscription as any).dispose === "function"
+      ) {
+        (subscription as any).dispose();
+      } else {
+        console.warn(
+          "Unable to cancel member subscription: no unsubscribe/dispose function found."
+        );
+      }
     };
   }, [groupId]);
 
