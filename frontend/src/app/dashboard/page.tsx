@@ -12,7 +12,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useMemberSubscription } from "@/hooks/useSubscription";
+import { useMemberSubscription, useGroupSubscription } from "@/hooks/useSubscription";
 import { useUserStore } from '@/store/userStore';
 import { useRouter } from "next/navigation";
 
@@ -42,17 +42,18 @@ function GroupDetail({ group, userId, setGroup }: any) {
   const [cardInfo, setCardInfo] = useState<any>(null);
   const [wsUpdateReceived, setWsUpdateReceived] = useState(false);
 
-  // WebSocket subscription for member status changes
+  // WebSocket subscriptions for both member and group status changes
   const { member: liveMember } = useMemberSubscription(group?.id);
+  const { group: liveGroup } = useGroupSubscription(group?.id);
 
   useEffect(() => {
     setMembers(group?.members || []);
   }, [group]);
 
-  // Handle real-time updates via WebSocket
+  // Handle real-time updates via WebSocket for member status
   useEffect(() => {
     if (liveMember) {
-      console.log("🔄 WebSocket update received:", liveMember);
+      console.log("🔄 Member WebSocket update received:", liveMember);
       setWsUpdateReceived(true);
 
       // Update the member in our local state
@@ -72,6 +73,30 @@ function GroupDetail({ group, userId, setGroup }: any) {
       setTimeout(() => setWsUpdateReceived(false), 3000);
     }
   }, [liveMember, updating]);
+
+  // Handle real-time updates via WebSocket for group status
+  useEffect(() => {
+    if (liveGroup) {
+      console.log("🔄 Group WebSocket update received:", liveGroup);
+      setWsUpdateReceived(true);
+
+      // Update the group state with complete data
+      setGroup(liveGroup);
+      
+      // Update members list
+      setMembers(liveGroup.members || []);
+
+      // Show a toast notification for real-time updates
+      if (liveGroup.status !== group?.status) {
+        toast.info(`Group status updated: ${liveGroup.status}`);
+      } else if (liveGroup.members?.length !== group?.members?.length) {
+        toast.info("New member joined the group");
+      }
+
+      // Reset the update indicator after 3 seconds
+      setTimeout(() => setWsUpdateReceived(false), 3000);
+    }
+  }, [liveGroup, group]);
 
   const handleUpdateStatus = async (
     status: "AGREED" | "DISAGREED",
@@ -111,17 +136,15 @@ function GroupDetail({ group, userId, setGroup }: any) {
         throw new Error(data.errors[0].message);
       }
 
-      console.log(
-        "✅ GraphQL mutation successful, waiting for WebSocket update"
-      );
+      console.log("✅ GraphQL mutation successful, waiting for WebSocket update");
       toast.success(`Status changed to ${status}! Waiting for confirmation...`);
-
-      // The actual UI update will now come from the WebSocket subscription
-      // We don't need to manually update the state here anymore
 
       // Check if all members have agreed
       const allAgreed = updatedMembers.every((m) => m.status === "AGREED");
+      console.log("All members agreed:", allAgreed, "Updated members:", updatedMembers);
+
       if (allAgreed) {
+        console.log("Updating group status to ACTIVE");
         // Update group status to ACTIVE
         const updateGroupResponse = await fetch(
           "http://localhost:8080/graphql",
@@ -130,11 +153,16 @@ function GroupDetail({ group, userId, setGroup }: any) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               query: `mutation UpdateGroupStatus($groupId: ID!, $status: GroupStatus!) {
-              updateGroupStatus(groupId: $groupId, status: $status) {
-                id
-                status
-              }
-            }`,
+                updateGroupStatus(groupId: $groupId, status: $status) {
+                  id
+                  status
+                  description
+                  totalAmount
+                  totalPeople
+                  leader { id name username }
+                  members { id amount status user { id name username } }
+                }
+              }`,
               variables: {
                 groupId: group.id,
                 status: "ACTIVE",
@@ -144,15 +172,18 @@ function GroupDetail({ group, userId, setGroup }: any) {
         );
 
         const updateGroupData = await updateGroupResponse.json();
+        console.log("Group status update response:", updateGroupData);
+
         if (updateGroupData.errors) {
           throw new Error(updateGroupData.errors[0].message);
         }
 
-        // Update local group status
-        setGroup((prev: any) => ({ ...prev, status: "ACTIVE" }));
+        // Update local group status with the complete group data
+        setGroup(updateGroupData.data.updateGroupStatus);
         toast.success("All members agreed! Group is now active.");
       }
     } catch (error: any) {
+      console.error("Error updating status:", error);
       toast.error(error.message || "Failed to update status");
       // Revert the optimistic update if there was an error
       setMembers(group?.members || []);
@@ -201,7 +232,11 @@ function GroupDetail({ group, userId, setGroup }: any) {
       }
 
       setCardInfo(data.data.generatePaymentCard);
-      toast.success("Virtual card generated successfully!");
+      
+      // 更新群组状态为已完成
+      setGroup((prev: any) => ({ ...prev, status: "COMPLETED" }));
+      
+      toast.success("Virtual card generated successfully! Group is now completed.");
     } catch (error: any) {
       console.error("Error generating card:", error);
       toast.error(error.message || "Failed to generate virtual card");
@@ -288,7 +323,7 @@ function GroupDetail({ group, userId, setGroup }: any) {
               <div className="mt-4 flex gap-2">
                 <Button
                   size="sm"
-                  disabled={!!updating}
+                  disabled={!!updating || group.status === "COMPLETED"}
                   variant={member.status === "AGREED" ? "default" : "outline"}
                   onClick={() => handleUpdateStatus("AGREED", member.id)}
                   className="flex-1"
@@ -297,7 +332,7 @@ function GroupDetail({ group, userId, setGroup }: any) {
                 </Button>
                 <Button
                   size="sm"
-                  disabled={!!updating}
+                  disabled={!!updating || group.status === "COMPLETED"}
                   variant={
                     member.status === "DISAGREED" ? "default" : "outline"
                   }
@@ -322,9 +357,11 @@ function GroupDetail({ group, userId, setGroup }: any) {
             <Button
               className="w-full"
               onClick={handleGenerateCard}
-              disabled={generatingCard}
+              disabled={generatingCard || group.status !== "ACTIVE"}
             >
-              {generatingCard ? "Generating..." : "Generate Virtual Card"}
+              {generatingCard 
+                ? "Generating..." 
+                : "Generate Virtual Card"}
             </Button>
           ) : (
             <div className="space-y-4">
@@ -350,12 +387,24 @@ function GroupDetail({ group, userId, setGroup }: any) {
               <Button
                 className="w-full"
                 onClick={handleGenerateCard}
-                disabled={generatingCard}
+                disabled={generatingCard || group.status !== "ACTIVE"}
               >
-                {generatingCard ? "Generating..." : "Generate New Card"}
+                {generatingCard 
+                  ? "Generating..." 
+                  : "Generate New Card"}
               </Button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Group Status Message (visible to all members) */}
+      {group.status === "COMPLETED" && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+          <div className="flex items-center gap-2 text-blue-700">
+            <span className="font-semibold">Group Status:</span>
+            <span>Payment completed. Virtual card has been generated.</span>
+          </div>
         </div>
       )}
     </div>

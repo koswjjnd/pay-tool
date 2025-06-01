@@ -15,30 +15,41 @@ public class GroupPublisher {
 
     public Flux<Group> getGroupStatusFlux(String groupId) {
         System.out.println("Creating group flux for groupId: " + groupId);
-        return getOrCreateGroupSink(groupId).asFlux();
+        return getOrCreateGroupSink(groupId).asFlux()
+            .doOnSubscribe(s -> System.out.println("Group subscription started for: " + groupId))
+            .doOnNext(g -> System.out.println("Group update emitted for: " + groupId + ", status: " + g.getStatus()))
+            .doOnError(e -> System.err.println("Error in group flux for " + groupId + ": " + e.getMessage()))
+            .doOnComplete(() -> System.out.println("Group subscription completed for: " + groupId));
     }
 
     public Flux<GroupMember> getMemberStatusFlux(String groupId) {
         System.out.println("Creating member flux for groupId: " + groupId);
-        return getOrCreateMemberSink(groupId).asFlux();
+        return getOrCreateMemberSink(groupId).asFlux()
+            .doOnSubscribe(s -> System.out.println("Member subscription started for: " + groupId))
+            .doOnNext(m -> System.out.println("Member update emitted for: " + groupId + ", member: " + m.getId()))
+            .doOnError(e -> System.err.println("Error in member flux for " + groupId + ": " + e.getMessage()))
+            .doOnComplete(() -> System.out.println("Member subscription completed for: " + groupId));
     }
 
     public void publishGroupStatus(String groupId, Group group) {
-        System.out.println("Publishing group status for groupId: " + groupId);
-        Sinks.Many<Group> sink = groupSinks.get(groupId);
-        if (sink != null) {
-            sink.tryEmitNext(group);
+        System.out.println("Publishing group status for groupId: " + groupId + ", status: " + group.getStatus());
+        Sinks.Many<Group> sink = getOrCreateGroupSink(groupId);
+        Sinks.EmitResult result = sink.tryEmitNext(group);
+        if (result.isFailure()) {
+            System.err.println("Failed to emit group update for " + groupId + ": " + result);
+        } else {
+            System.out.println("Successfully emitted group update for " + groupId);
         }
     }
 
     public void publishMemberStatus(String groupId, GroupMember member) {
         System.out.println("Publishing member status for groupId: " + groupId + ", member: " + member.getId());
-        Sinks.Many<GroupMember> sink = memberSinks.get(groupId);
-        if (sink != null) {
-            System.out.println("Sink found, emitting member update");
-            sink.tryEmitNext(member);
-        } else{
-            System.out.println("No sink found for groupId: " + groupId);
+        Sinks.Many<GroupMember> sink = getOrCreateMemberSink(groupId);
+        Sinks.EmitResult result = sink.tryEmitNext(member);
+        if (result.isFailure()) {
+            System.err.println("Failed to emit member update for " + groupId + ": " + result);
+        } else {
+            System.out.println("Successfully emitted member update for " + groupId);
         }
     }
 
