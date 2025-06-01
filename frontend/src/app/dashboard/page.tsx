@@ -496,37 +496,37 @@ export default function DashboardPage() {
     setSearchQuery(e.target.value);
   }, []);
 
-  // 侧栏内容（使用useCallback优化）
-  const DrawerContent = useCallback(() => {
-    const handleCopyLink = (groupId: string) => {
-      const link = `${window.location.origin}/dashboard/join?groupId=${groupId}`;
-      navigator.clipboard.writeText(link);
-      toast.success("Invite link copied to clipboard");
-    };
+const DrawerContent = useCallback(() => {
+  const handleCopyLink = (groupId: string) => {
+    const link = `${window.location.origin}/dashboard/join?groupId=${groupId}`;
+    navigator.clipboard.writeText(link);
+    toast.success("Invite link copied to clipboard");
+  };
 
-    return (
-      <div className="flex flex-col h-full w-72 bg-white shadow-lg">
-        <div className="flex items-center gap-2 p-4 border-b">
-          <SearchIcon className="w-5 h-5 text-gray-400" />
-          <input
-            ref={searchInputRef}
-            className="flex-1 bg-transparent outline-none text-base"
-            placeholder="Search by group name..."
-            value={searchQuery}
-            onChange={handleSearchChange}
-            autoComplete="off"
-          />
-          {searchQuery && (
-            <button
-              onClick={clearSearch}
-              className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-              type="button"
-            >
-              <XIcon className="w-4 h-4 text-gray-400" />
-            </button>
-          )}
-        </div>
-        
+  return (
+    <div className="flex flex-col h-full w-72 bg-white shadow-lg">
+      <div className="flex items-center gap-2 p-4 border-b">
+        <SearchIcon className="w-5 h-5 text-gray-400" />
+        <input
+          key="search-input" 
+          ref={searchInputRef}
+          className="flex-1 bg-transparent outline-none text-base"
+          placeholder="Search by group name..."
+          value={searchQuery}
+          onChange={handleSearchChange}
+          autoComplete="off"
+          autoFocus 
+        />
+        {searchQuery && (
+          <button
+            onClick={clearSearch}
+            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+            type="button"
+          >
+            <XIcon className="w-4 h-4 text-gray-400" />
+          </button>
+        )}
+      </div>
         <div className="p-4 flex flex-col gap-2 border-b">
           <Button
             className="w-full flex items-center gap-2 justify-center"
@@ -591,9 +591,9 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
-      </div>
-    );
-  }, [searchQuery, filteredGroups, selectedGroupId, userId, handleSearchChange, clearSearch]);
+    </div>
+  );
+}, [filteredGroups, selectedGroupId, userId]); 
 
   // 右上角头像菜单
   const handleLogout = () => {
