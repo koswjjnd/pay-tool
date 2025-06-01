@@ -148,28 +148,31 @@ public class MutationResolver {
             .orElseThrow(() -> new RuntimeException("Group not found"));
 
         List<GroupMember> members = groupMemberRepository.findByGroup(group);
+
+        // ✅ 先检查人数是否匹配
+        if (members.size() != group.getTotalPeople()) {
+            throw new CustomException("Not enough members to generate payment card. Expected " 
+                + group.getTotalPeople() + ", but got " + members.size());
+        }
+
+        // ✅ 检查所有人是否同意
         boolean allAgreed = members.stream()
             .allMatch(member -> member.getStatus() == MemberStatus.AGREED);
 
         if (!allAgreed) {
-            throw new RuntimeException("Not all members have agreed to the payment");
+            throw new CustomException("Not all members have agreed to the payment");
         }
 
+        // 🟩 符合条件，生成卡片
         PaymentCard card = new PaymentCard();
         card.setGroup(group);
         card.setCardNumber(generateCardNumber());
         card.setAmount(group.getTotalAmount());
         card.setStatus(PaymentCardStatus.ACTIVE);
 
-        // 生成卡后更新群组状态为已完成
-        group.setStatus(GroupStatus.COMPLETED);
-        Group updatedGroup = groupRepository.save(group);
-
-        // 发布群组状态更新事件
-        subscriptionResolver.publishGroupUpdate(groupId.toString(), updatedGroup);
-
         return paymentCardRepository.save(card);
     }
+
 
     @MutationMapping
     public Transaction createTransaction(@Argument("input") CreateTransactionInput input) {
