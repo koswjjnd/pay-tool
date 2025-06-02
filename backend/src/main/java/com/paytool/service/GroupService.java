@@ -11,7 +11,7 @@ import com.paytool.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.Optional;
-
+import com.paytool.exception.CustomException;
 @Service
 public class GroupService {
     private final GroupRepository groupRepository;
@@ -33,14 +33,14 @@ public class GroupService {
     @Transactional
     public GroupMember joinGroup(Long groupId, Long userId) {
         Group group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new RuntimeException("Group not found"));
+                .orElseThrow(() -> new CustomException("Group not found"));
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new CustomException("User not found"));
 
         // Check if user is already a member
         Optional<GroupMember> existingMember = groupMemberRepository.findByGroupIdAndUserId(groupId, userId);
         if (existingMember.isPresent()) {
-            throw new RuntimeException("User is already a member of this group");
+            throw new CustomException("User is already a member of this group");
         }
 
         // Calculate split amount
@@ -58,7 +58,7 @@ public class GroupService {
 
         // Fetch updated group with all members
         Group updatedGroup = groupRepository.findById(groupId)
-                .orElseThrow(() -> new RuntimeException("Group not found"));
+                .orElseThrow(() -> new CustomException("Group not found"));
 
         // Publish group update
         groupPublisher.publishGroupStatus(groupId.toString(), updatedGroup);
@@ -69,7 +69,7 @@ public class GroupService {
     @Transactional
     public GroupMember updateMemberStatus(Long groupId, Long userId, MemberStatus status) {
         GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, userId)
-                .orElseThrow(() -> new RuntimeException("Member not found"));
+                .orElseThrow(() -> new CustomException("Member not found"));
 
         member.setStatus(status);
         member = groupMemberRepository.save(member);
@@ -81,7 +81,7 @@ public class GroupService {
     @Transactional
     public Group updateGroupStatus(Long groupId, GroupStatus status) {
         Group group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new RuntimeException("Group not found"));
+                .orElseThrow(() -> new CustomException("Group not found"));
 
         group.setStatus(status);
         Group updatedGroup = groupRepository.save(group);
