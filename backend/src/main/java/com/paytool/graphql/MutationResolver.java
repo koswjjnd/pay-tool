@@ -64,7 +64,7 @@ public class MutationResolver {
     @MutationMapping
     public User updateUser(@Argument("id") String id, @Argument("input") UpdateUserInput input) {
         User user = userRepository.findById(Long.parseLong(id))
-            .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new CustomException("User not found"));
 
         if (input.getEmail() != null) {
             user.setEmail(input.getEmail());
@@ -85,11 +85,11 @@ public class MutationResolver {
             System.out.println("Creating group with input: " + input);
 
             if (input.getLeaderId() == null) {
-                throw new RuntimeException("Leader ID cannot be null");
+                throw new CustomException("Leader ID cannot be null");
             }
             double splitAmount = input.getTotalAmount() / input.getTotalPeople();
             User leader = userRepository.findById(input.getLeaderId())
-                .orElseThrow(() -> new RuntimeException("Leader not found with ID: " + input.getLeaderId()));
+                .orElseThrow(() -> new CustomException("Leader not found with ID: " + input.getLeaderId()));
             System.out.println("Found leader: " + leader.getUsername());
 
             Group group = new Group();
@@ -117,7 +117,7 @@ public class MutationResolver {
         } catch (Exception e) {
             System.err.println("Error in createGroup: " + e.getMessage());
             e.printStackTrace();
-            throw new RuntimeException("Failed to create group: " + e.getMessage(), e);
+            throw new CustomException("Failed to create group: " + e.getMessage());
         }
     }
 
@@ -145,7 +145,7 @@ public class MutationResolver {
     @MutationMapping
     public PaymentCard generatePaymentCard(@Argument("groupId") Long groupId) {
         Group group = groupRepository.findById(groupId)
-            .orElseThrow(() -> new RuntimeException("Group not found"));
+            .orElseThrow(() -> new CustomException("Group not found"));
 
         List<GroupMember> members = groupMemberRepository.findByGroup(group);
 
@@ -169,7 +169,12 @@ public class MutationResolver {
         card.setCardNumber(generateCardNumber());
         card.setAmount(group.getTotalAmount());
         card.setStatus(PaymentCardStatus.ACTIVE);
+        // 生成卡后更新群组状态为已完成Add commentMore actions
+        group.setStatus(GroupStatus.COMPLETED);
+        Group updatedGroup = groupRepository.save(group);
 
+        // 发布群组状态更新事件
+        subscriptionResolver.publishGroupUpdate(groupId.toString(), updatedGroup);
         return paymentCardRepository.save(card);
     }
 
@@ -177,9 +182,9 @@ public class MutationResolver {
     @MutationMapping
     public Transaction createTransaction(@Argument("input") CreateTransactionInput input) {
         User sender = userRepository.findById(Long.parseLong(input.getSenderId().toString()))
-            .orElseThrow(() -> new RuntimeException("Sender not found"));
+            .orElseThrow(() -> new CustomException("Sender not found"));
         User receiver = userRepository.findById(Long.parseLong(input.getReceiverId().toString()))
-            .orElseThrow(() -> new RuntimeException("Receiver not found"));
+            .orElseThrow(() -> new CustomException("Receiver not found"));
 
         Transaction transaction = new Transaction();
         transaction.setSender(sender);
@@ -196,7 +201,7 @@ public class MutationResolver {
             @Argument("id") String id,
             @Argument("status") TransactionStatus status) {
         Transaction transaction = transactionRepository.findById(Long.parseLong(id))
-            .orElseThrow(() -> new RuntimeException("Transaction not found"));
+            .orElseThrow(() -> new CustomException("Transaction not found"));
 
         transaction.setStatus(status);
         return transactionRepository.save(transaction);
@@ -205,7 +210,7 @@ public class MutationResolver {
     @MutationMapping
     public AuthPayload login(@Argument String username, @Argument String password) {
         User user = userRepository.findByUsername(username)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new CustomException("User not found"));
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new CustomException("Invalid password");
         }
